@@ -29,6 +29,7 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .pytest_cache/
+*.tsbuildinfo
 htmlcov/
 coverage.xml
 .coverage
