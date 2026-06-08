@@ -1,0 +1,50 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Credentials
+*.json.key
+service-account*.json
+*-adminsdk-*.json
+gcp-*.json
+credentials.json
+*.pem
+
+# Node
+node_modules/
+
+# Build output
+dist/
+build/
+.next/
+__pycache__/
+*.pyc
+*.pyo
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+htmlcov/
+coverage.xml
+.coverage
+
+# IDE
+.vscode/
+.idea/
+
+# Planning artifacts (never committed)
+CLAUDE.md
+.claude/
+plan.md
+PLAN.md
+tasks.md
+
+# OS
+.DS_Store
+Thumbs.db
+
