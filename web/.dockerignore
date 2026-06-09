@@ -1,0 +1,12 @@
+.env
+.env.*
+.env.local
+.env.*.local
+node_modules
+.next
+.git
+.gitignore
+*.md
+tests/
+playwri*
+scripts/

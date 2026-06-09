@@ -22,8 +22,10 @@ async def test_dependencies_wiring_and_stubs() -> None:
     dependencies._firestore_client = None
     dependencies._http_client = None
 
-    # Mock firestore AsyncClient
-    with patch("app.core.dependencies.AsyncClient") as mock_firestore_class:
+    # Mock firestore AsyncClient and auth so the real AsyncClient path is taken in CI
+    with patch("app.core.dependencies.google.auth.default") as mock_auth, \
+         patch("app.core.dependencies.AsyncClient") as mock_firestore_class:
+        mock_auth.return_value = (MagicMock(), "test-project")
         mock_db = MagicMock(spec=AsyncClient)
         mock_db.close = AsyncMock()
         mock_firestore_class.return_value = mock_db
