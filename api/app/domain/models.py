@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
@@ -14,7 +14,7 @@ class TripLog(BaseModel):
     mode: str = Field(description="Mode of transport, matching emission factors")
     co2e_kg: float = Field(ge=0.0, description="Calculated carbon footprint in kg CO2e")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="Time the trip was logged"
+        default_factory=lambda: datetime.now(UTC), description="Time the trip was logged"
     )
     citation: str = Field(description="Source citation for the factor used")
     effective_year: int = Field(description="Effective year of the factor used")
@@ -29,7 +29,7 @@ class CommittedAction(BaseModel):
     title: str = Field(min_length=1, max_length=256, description="Description of the action")
     category: str = Field(description="Category of commitment: transport, food, energy")
     projected_savings_kg: float = Field(ge=0.0, description="Projected annual kg CO2e saved")
-    committed_at: datetime = Field(default_factory=datetime.utcnow)
+    committed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     status: str = Field(default="active", description="Status: 'active', 'completed', 'abandoned'")
 
 
@@ -53,7 +53,7 @@ class FoodLog(BaseModel):
     weight_kg: float = Field(gt=0.0, description="Weight of the food item in kilograms")
     co2e_kg: float = Field(ge=0.0, description="Calculated carbon footprint in kg CO2e")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="Time the food was logged"
+        default_factory=lambda: datetime.now(UTC), description="Time the food was logged"
     )
     citation: str = Field(description="Source citation for the factor used")
     effective_year: int = Field(description="Effective year of the factor used")
@@ -70,7 +70,7 @@ class EnergyLog(BaseModel):
     )
     co2e_kg: float = Field(ge=0.0, description="Calculated carbon footprint in kg CO2e")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="Time the energy was logged"
+        default_factory=lambda: datetime.now(UTC), description="Time the energy was logged"
     )
     citation: str = Field(description="Source citation for the factor used")
     effective_year: int = Field(description="Effective year of the factor used")

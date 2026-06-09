@@ -43,14 +43,20 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
             normalized_allowed = {normalize(a) for a in allowed if a}
 
-            # 1. Validate Origin header if present
+            # 1. Both absent — reject: no way to verify same-origin
+            if not origin and not referer:
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={"detail": "CSRF validation failed: origin and referer absent"},
+                )
+            # 2. Validate Origin header if present
             if origin:
                 if normalize(origin) not in normalized_allowed:
                     return JSONResponse(
                         status_code=status.HTTP_403_FORBIDDEN,
                         content={"detail": "CSRF validation failed: origin not allowed"},
                     )
-            # 2. Fallback to Referer header if Origin is absent
+            # 3. Fallback to Referer header if Origin is absent
             elif referer and normalize(referer) not in normalized_allowed:
                 return JSONResponse(
                     status_code=status.HTTP_403_FORBIDDEN,

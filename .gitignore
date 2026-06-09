@@ -23,6 +23,10 @@ node_modules/
 dist/
 build/
 .next/
+
+# Playwright artifacts
+web/playwright-report/
+web/test-results/
 __pycache__/
 *.pyc
 *.pyo

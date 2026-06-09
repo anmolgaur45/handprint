@@ -38,6 +38,10 @@ class EnergyEstimator(EmissionEstimator[EnergyActivity]):
         }
         return mapping.get(source.lower(), f"energy.{source.lower()}")
 
+    def get_factor_metadata(self, key: str) -> EmissionFactor | None:
+        """Return the EmissionFactor for *key* (shorthand or full), or None if not found."""
+        return self._factors.get(self._get_factor_key(key))
+
     def estimate(self, activity: EnergyActivity) -> float:
         """Calculate the carbon emissions in kg CO2e for a given energy activity.
 

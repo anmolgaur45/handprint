@@ -48,6 +48,10 @@ class TransportEstimator(EmissionEstimator[TransportActivity]):
         }
         return mapping.get(mode.lower(), f"transport.{mode.lower()}")
 
+    def get_factor_metadata(self, key: str) -> EmissionFactor | None:
+        """Return the EmissionFactor for *key* (shorthand or full), or None if not found."""
+        return self._factors.get(self._get_factor_key(key))
+
     def estimate(self, activity: TransportActivity) -> float:
         """Calculate the carbon emissions in kg CO2e for a given transport activity.
 

@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
+import anyio
+import anyio.to_thread
+import structlog
 import vertexai
 from vertexai.generative_models import GenerationConfig, GenerativeModel
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class VertexClient:
@@ -31,7 +33,7 @@ class VertexClient:
                 vertexai.init(project=self.project_id, location=self.location)
                 self._initialized = True
             except Exception as e:
-                logger.error("Failed to initialize Vertex AI SDK: %s", e)
+                logger.error("Failed to initialize Vertex AI SDK", error=str(e))
                 raise RuntimeError(f"Vertex AI initialization failed: {e}") from e
 
     async def parse_trip(self, user_text: str) -> dict[str, Any]:
@@ -63,8 +65,6 @@ class VertexClient:
                 temperature=0.1,
             )
             # Run in thread pool as GenerateContent is synchronous
-            import anyio
-
             response = await anyio.to_thread.run_sync(
                 lambda: model.generate_content(prompt, generation_config=config)
             )
@@ -81,7 +81,7 @@ class VertexClient:
                 "mode": data.get("mode"),
             }
         except Exception as e:
-            logger.error("Failed to parse trip using Gemini: %s", e)
+            logger.error("Failed to parse trip using Gemini", error=str(e))
             raise ValueError(f"Gemini trip parsing failed: {e}") from e
 
     async def narrate_insights(
@@ -121,8 +121,6 @@ class VertexClient:
 
         try:
             model = GenerativeModel(self.model_name)
-            import anyio
-
             response = await anyio.to_thread.run_sync(lambda: model.generate_content(prompt))
 
             if not response.text:
@@ -130,5 +128,5 @@ class VertexClient:
 
             return response.text.strip()
         except Exception as e:
-            logger.error("Failed to narrate insights using Gemini: %s", e)
+            logger.error("Failed to narrate insights using Gemini", error=str(e))
             raise ValueError(f"Gemini narration failed: {e}") from e

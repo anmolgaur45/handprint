@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta
 from typing import Annotated
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -10,12 +10,14 @@ from app.core.dependencies import (
     get_streak_repository,
 )
 from app.domain.energy import EnergyActivity, EnergyEstimator
-from app.domain.models import EnergyLog, UserStreak
+from app.domain.models import EnergyLog
 from app.middleware.auth import get_current_user_id
 from app.repositories.energy_log import EnergyLogRepository
 from app.repositories.streak import StreakRepository
+from app.services.streak_service import update_streak
 
 router = APIRouter(prefix="/energy", tags=["energy"])
+logger = structlog.get_logger(__name__)
 
 
 class EnergyLogCreateRequest(BaseModel):
@@ -50,9 +52,7 @@ async def create_energy_log(
             detail=str(e),
         ) from e
 
-    factor_key = estimator._get_factor_key(request.source)
-    factor = estimator._factors.get(factor_key)
-
+    factor = estimator.get_factor_metadata(request.source)
     citation = factor.source if factor else "Unknown"
     effective_year = factor.effective_year if factor else 2026
 
@@ -66,45 +66,7 @@ async def create_energy_log(
     )
 
     created_log = await repo.create(log)
-
-    # Maintain logging streak
-    try:
-        user_streak = await streak_repo.get_by_user(user_id)
-        now = datetime.utcnow()
-        today = now.date()
-
-        if user_streak is None:
-            user_streak = UserStreak(
-                user_id=user_id,
-                current_streak=1,
-                longest_streak=1,
-                last_active_at=now,
-            )
-        else:
-            last_active = user_streak.last_active_at
-            if last_active is None:
-                user_streak.current_streak = 1
-                user_streak.longest_streak = max(user_streak.longest_streak, 1)
-                user_streak.last_active_at = now
-            else:
-                last_active_date = last_active.date()
-                if last_active_date == today:
-                    user_streak.last_active_at = now
-                elif last_active_date == today - timedelta(days=1):
-                    user_streak.current_streak += 1
-                    user_streak.longest_streak = max(
-                        user_streak.longest_streak, user_streak.current_streak
-                    )
-                    user_streak.last_active_at = now
-                else:
-                    if last_active_date < today - timedelta(days=1):
-                        user_streak.current_streak = 1
-                        user_streak.last_active_at = now
-
-        await streak_repo.upsert(user_streak)
-    except Exception:
-        pass
-
+    await update_streak(user_id, streak_repo)
     return created_log
 
 

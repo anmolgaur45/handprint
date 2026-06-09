@@ -1,25 +1,25 @@
-from datetime import datetime, timedelta
 from typing import Annotated
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from app.clients.distance_matrix import DistanceMatrixClient
 from app.clients.vertex import VertexClient
 from app.core.dependencies import (
-    get_distance_matrix_client,
     get_streak_repository,
     get_transport_estimator,
     get_trip_log_repository,
     get_vertex_client,
 )
-from app.domain.models import TripLog, UserStreak
+from app.domain.models import TripLog
 from app.domain.transport import TransportActivity, TransportEstimator
 from app.middleware.auth import get_current_user_id
 from app.repositories.streak import StreakRepository
 from app.repositories.trip_log import TripLogRepository
+from app.services.streak_service import update_streak
 
 router = APIRouter(prefix="/trips", tags=["trips"])
+logger = structlog.get_logger(__name__)
 
 
 class TripCreateRequest(BaseModel):
@@ -56,10 +56,7 @@ async def create_trip(
             detail=str(e),
         ) from e
 
-    # Find the corresponding emission factor citation details
-    factor_key = estimator._get_factor_key(request.mode)
-    factor = estimator._factors.get(factor_key)
-
+    factor = estimator.get_factor_metadata(request.mode)
     citation = factor.source if factor else "Unknown"
     effective_year = factor.effective_year if factor else 2026
 
@@ -75,49 +72,7 @@ async def create_trip(
     )
 
     created_trip = await repo.create(trip)
-
-    # Active Streak Roll-over & Increments
-    try:
-        user_streak = await streak_repo.get_by_user(user_id)
-        now = datetime.utcnow()
-        today = now.date()
-
-        if user_streak is None:
-            user_streak = UserStreak(
-                user_id=user_id,
-                current_streak=1,
-                longest_streak=1,
-                last_active_at=now,
-            )
-        else:
-            last_active = user_streak.last_active_at
-            if last_active is None:
-                user_streak.current_streak = 1
-                user_streak.longest_streak = max(user_streak.longest_streak, 1)
-                user_streak.last_active_at = now
-            else:
-                last_active_date = last_active.date()
-                if last_active_date == today:
-                    # Same day log: just refresh time
-                    user_streak.last_active_at = now
-                elif last_active_date == today - timedelta(days=1):
-                    # Consecutive day log: increment streak
-                    user_streak.current_streak += 1
-                    user_streak.longest_streak = max(
-                        user_streak.longest_streak, user_streak.current_streak
-                    )
-                    user_streak.last_active_at = now
-                else:
-                    # Streak broken or past log
-                    if last_active_date < today - timedelta(days=1):
-                        user_streak.current_streak = 1
-                        user_streak.last_active_at = now
-
-        await streak_repo.upsert(user_streak)
-    except Exception:
-        # Non-blocking soft degradation
-        pass
-
+    await update_streak(user_id, streak_repo)
     return created_trip
 
 
@@ -132,40 +87,6 @@ async def list_trips(
 ) -> list[TripLog]:
     """Retrieve the trip history of the logged-in user."""
     return await repo.list_by_user(user_id)
-
-
-class DistanceResponse(BaseModel):
-    """Schema for driving distance calculation response."""
-
-    origin: str
-    destination: str
-    distance_km: float
-
-
-@router.get(
-    "/distance",
-    response_model=DistanceResponse,
-    summary="Calculate driving distance between two locations",
-)
-async def get_trip_distance(
-    origin: str,
-    destination: str,
-    user_id: Annotated[str, Depends(get_current_user_id)],
-    client: Annotated[DistanceMatrixClient, Depends(get_distance_matrix_client)],
-) -> DistanceResponse:
-    """Calculate driving distance between origin and destination using Google Maps."""
-    try:
-        dist = await client.get_distance(origin, destination)
-        return DistanceResponse(
-            origin=origin,
-            destination=destination,
-            distance_km=dist,
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
 
 
 class TripParseRequest(BaseModel):
@@ -189,7 +110,7 @@ class TripParseResponse(BaseModel):
 )
 async def parse_trip_text(
     request: TripParseRequest,
-    user_id: Annotated[str, Depends(get_current_user_id)],
+    _user_id: Annotated[str, Depends(get_current_user_id)],
     vertex_client: Annotated[VertexClient, Depends(get_vertex_client)],
 ) -> TripParseResponse:
     """Parse travel info using Vertex AI Gemini, falling back gracefully to nulls."""
@@ -201,5 +122,4 @@ async def parse_trip_text(
             mode=parsed.get("mode"),
         )
     except Exception:
-        # Fallback gracefully to null structures on exception
         return TripParseResponse()

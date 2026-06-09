@@ -16,8 +16,6 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { AppSidebar } from "@/components/app-sidebar";
 
-const todayStr = () => new Date().toISOString().split("T")[0];
-
 // ─── Emission factor tables (pinned from api/app/domain/factors.py) ───────────
 
 const TRANSPORT_FACTORS: Record<string, {
@@ -78,17 +76,14 @@ export default function LogActivityPage() {
   // Travel state
   const [mode, setMode]               = useState("petrol_car");
   const [distanceKm, setDistanceKm]   = useState<number | "">("");
-  const [tripDate, setTripDate]       = useState(todayStr());
 
   // Food state
   const [foodItem, setFoodItem]       = useState("beef");
   const [foodWeight, setFoodWeight]   = useState<number | "">("");
-  const [foodDate, setFoodDate]       = useState(todayStr());
 
   // Energy state
   const [energySrc, setEnergySrc]     = useState("electricity");
   const [energyQty, setEnergyQty]     = useState<number | "">("");
-  const [energyDate, setEnergyDate]   = useState(todayStr());
 
   // AI autofill
   const [showAi, setShowAi]           = useState(false);
@@ -322,7 +317,8 @@ export default function LogActivityPage() {
 
               {/* ── Travel panel ──────────────────────────────────────────── */}
               {activeTab === "travel" && (
-                <form id="panel-travel" role="tabpanel" aria-labelledby="tab-travel" onSubmit={handleSaveTravel} className="space-y-5">
+                <div id="panel-travel" role="tabpanel" aria-labelledby="tab-travel">
+                <form onSubmit={handleSaveTravel} className="space-y-5">
 
                   {/* Mode select */}
                   <div className="space-y-1.5">
@@ -370,6 +366,7 @@ export default function LogActivityPage() {
                             className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
                           />
                           <button
+                            id="ai-autofill-button"
                             type="button"
                             onClick={handleAiParse}
                             disabled={isAiParsing || !aiText.trim()}
@@ -384,38 +381,23 @@ export default function LogActivityPage() {
                     )}
                   </div>
 
-                  {/* Amount + Date */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label htmlFor="travel-km" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                        Amount (km)
-                      </label>
-                      <input
-                        id="travel-km"
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        max="20000"
-                        placeholder="e.g. 12"
-                        value={distanceKm}
-                        onChange={(e) => setDistanceKm(e.target.value === "" ? "" : Number(e.target.value))}
-                        required
-                        className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label htmlFor="travel-date" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                        Date
-                      </label>
-                      <input
-                        id="travel-date"
-                        type="date"
-                        value={tripDate}
-                        max={todayStr()}
-                        onChange={(e) => setTripDate(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
+                  {/* Amount */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="travel-km" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                      Amount (km)
+                    </label>
+                    <input
+                      id="travel-km"
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      max="20000"
+                      placeholder="e.g. 12"
+                      value={distanceKm}
+                      onChange={(e) => setDistanceKm(e.target.value === "" ? "" : Number(e.target.value))}
+                      required
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
                   </div>
 
                   {/* Live preview */}
@@ -448,11 +430,13 @@ export default function LogActivityPage() {
                       : <><Plus className="h-4 w-4" aria-hidden="true" /> Add to log</>}
                   </button>
                 </form>
+                </div>
               )}
 
               {/* ── Food panel ────────────────────────────────────────────── */}
               {activeTab === "food" && (
-                <form id="panel-food" role="tabpanel" aria-labelledby="tab-food" onSubmit={handleSaveFood} className="space-y-5">
+                <div id="panel-food" role="tabpanel" aria-labelledby="tab-food">
+                <form onSubmit={handleSaveFood} className="space-y-5">
 
                   <div className="space-y-1.5">
                     <label htmlFor="food-item" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
@@ -474,37 +458,22 @@ export default function LogActivityPage() {
                     <p className="text-[11px] text-zinc-500 leading-snug">{activeFoodF.description}</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label htmlFor="food-weight" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                        Amount (kg)
-                      </label>
-                      <input
-                        id="food-weight"
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        max="1000"
-                        placeholder="e.g. 0.25"
-                        value={foodWeight}
-                        onChange={(e) => setFoodWeight(e.target.value === "" ? "" : Number(e.target.value))}
-                        required
-                        className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label htmlFor="food-date" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                        Date
-                      </label>
-                      <input
-                        id="food-date"
-                        type="date"
-                        value={foodDate}
-                        max={todayStr()}
-                        onChange={(e) => setFoodDate(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="food-weight" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                      Amount (kg)
+                    </label>
+                    <input
+                      id="food-weight"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max="1000"
+                      placeholder="e.g. 0.25"
+                      value={foodWeight}
+                      onChange={(e) => setFoodWeight(e.target.value === "" ? "" : Number(e.target.value))}
+                      required
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
                   </div>
 
                   <div aria-live="polite" aria-atomic="true">
@@ -536,11 +505,13 @@ export default function LogActivityPage() {
                       : <><Plus className="h-4 w-4" aria-hidden="true" /> Add to log</>}
                   </button>
                 </form>
+                </div>
               )}
 
               {/* ── Energy panel ──────────────────────────────────────────── */}
               {activeTab === "energy" && (
-                <form id="panel-energy" role="tabpanel" aria-labelledby="tab-energy" onSubmit={handleSaveEnergy} className="space-y-5">
+                <div id="panel-energy" role="tabpanel" aria-labelledby="tab-energy">
+                <form onSubmit={handleSaveEnergy} className="space-y-5">
 
                   <div className="space-y-1.5">
                     <label htmlFor="energy-source" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
@@ -562,36 +533,21 @@ export default function LogActivityPage() {
                     <p className="text-[11px] text-zinc-500 leading-snug">{activeEnergyF.description}</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label htmlFor="energy-qty" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                        Amount ({activeEnergyF.unit})
-                      </label>
-                      <input
-                        id="energy-qty"
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        placeholder="e.g. 5"
-                        value={energyQty}
-                        onChange={(e) => setEnergyQty(e.target.value === "" ? "" : Number(e.target.value))}
-                        required
-                        className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label htmlFor="energy-date" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                        Date
-                      </label>
-                      <input
-                        id="energy-date"
-                        type="date"
-                        value={energyDate}
-                        max={todayStr()}
-                        onChange={(e) => setEnergyDate(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="energy-qty" className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                      Amount ({activeEnergyF.unit})
+                    </label>
+                    <input
+                      id="energy-qty"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="e.g. 5"
+                      value={energyQty}
+                      onChange={(e) => setEnergyQty(e.target.value === "" ? "" : Number(e.target.value))}
+                      required
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
                   </div>
 
                   <div aria-live="polite" aria-atomic="true">
@@ -623,6 +579,7 @@ export default function LogActivityPage() {
                       : <><Plus className="h-4 w-4" aria-hidden="true" /> Add to log</>}
                   </button>
                 </form>
+                </div>
               )}
             </section>
 

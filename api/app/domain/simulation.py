@@ -53,11 +53,11 @@ class EVCarSwapCommand(SimulationCommand):
 
     def execute(self, trips: list[TripLog], estimator: TransportEstimator) -> float:
         savings = 0.0
-        ev_key = estimator._get_factor_key("ev_car")
-        if ev_key not in estimator._factors:
+        ev_factor_meta = estimator.get_factor_metadata("ev_car")
+        if ev_factor_meta is None:
             return 0.0
 
-        ev_factor = estimator._factors[ev_key].value
+        ev_factor = ev_factor_meta.value
 
         for trip in trips:
             if trip.mode in ("petrol_car", "diesel_car", "hybrid_car"):
@@ -80,11 +80,11 @@ class ModeShiftCommand(SimulationCommand):
 
     def execute(self, trips: list[TripLog], estimator: TransportEstimator) -> float:
         savings = 0.0
-        target_key = estimator._get_factor_key(self.target_mode)
-        if target_key not in estimator._factors:
+        target_factor_meta = estimator.get_factor_metadata(self.target_mode)
+        if target_factor_meta is None:
             raise ValueError(f"Invalid target mode: '{self.target_mode}'")
 
-        target_factor = estimator._factors[target_key].value
+        target_factor = target_factor_meta.value
 
         for trip in trips:
             if trip.mode in ("petrol_car", "diesel_car", "hybrid_car", "ev_car", "motorbike"):

@@ -91,8 +91,9 @@ def create_app() -> FastAPI:
     app.add_middleware(
         RateLimitMiddleware,
         limiter=limiter,
-        path_prefix="/ai",
+        path_prefixes=("/insights", "/trips/parse"),
     )
+    app.state.rate_limiter = limiter
 
     # Body size cap
     app.add_middleware(

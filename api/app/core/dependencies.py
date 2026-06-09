@@ -14,9 +14,7 @@ import httpx
 import structlog
 from google.cloud.firestore import AsyncClient
 
-from app.clients.air_quality import AirQualityClient
 from app.clients.distance_matrix import DistanceMatrixClient
-from app.clients.places import PlacesClient
 from app.clients.vertex import VertexClient
 from app.core.config import get_settings
 from app.domain import EnergyEstimator, FoodEstimator, TransportEstimator
@@ -134,6 +132,9 @@ class InMemoryAsyncClient:
     def collection(self, name: str) -> InMemoryCollectionReference:
         return InMemoryCollectionReference(self, name)
 
+    async def close(self) -> None:
+        """No-op: in-memory client has no connections to close."""
+
 
 def get_firestore_client() -> AsyncClient:
     """Provide a cached Firestore AsyncClient, falling back to InMemoryAsyncClient if needed."""
@@ -226,25 +227,6 @@ async def get_distance_matrix_client() -> DistanceMatrixClient:
         http_client=http_client,
     )
 
-
-async def get_places_client() -> PlacesClient:
-    """Inject PlacesClient instance."""
-    settings = get_settings()
-    http_client = await get_http_client()
-    return PlacesClient(
-        api_key=settings.maps_api_key,
-        http_client=http_client,
-    )
-
-
-async def get_air_quality_client() -> AirQualityClient:
-    """Inject AirQualityClient instance."""
-    settings = get_settings()
-    http_client = await get_http_client()
-    return AirQualityClient(
-        api_key=settings.maps_api_key,
-        http_client=http_client,
-    )
 
 
 def get_food_estimator() -> FoodEstimator:

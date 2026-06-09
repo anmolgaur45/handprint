@@ -56,20 +56,20 @@ class SlidingWindowRateLimiter:
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Apply sliding-window rate limiting to paths matching a prefix."""
+    """Apply sliding-window rate limiting to paths matching any of the given prefixes."""
 
     def __init__(
         self,
         app: object,
         limiter: SlidingWindowRateLimiter,
-        path_prefix: str = "/ai",
+        path_prefixes: tuple[str, ...] = ("/insights", "/trips/parse"),
     ) -> None:
         super().__init__(app)  # type: ignore[arg-type]
         self.limiter = limiter
-        self.path_prefix = path_prefix
+        self.path_prefixes = path_prefixes
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        if not request.url.path.startswith(self.path_prefix):
+        if not any(request.url.path.startswith(p) for p in self.path_prefixes):
             return await call_next(request)
 
         client_ip = request.client.host if request.client else "unknown"
