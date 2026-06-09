@@ -12,7 +12,7 @@ import {
   User,
 } from "firebase/auth";
 
-import { auth } from "./firebase";
+import { auth, isFirebaseConfigured } from "./firebase";
 
 interface AuthContextType {
   user: User | null;
@@ -27,13 +27,33 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function makeLocalGuestUser(): User {
+  return {
+    uid: "mock-local-user-id",
+    isAnonymous: true,
+    email: null,
+    emailVerified: false,
+    displayName: "Local Guest",
+    getIdToken: async () => "mock-id-token-xyz",
+    getIdTokenResult: async () => ({ token: "mock-id-token-xyz" } as unknown as Awaited<ReturnType<User["getIdTokenResult"]>>),
+    reload: async () => {},
+    toJSON: () => ({}),
+  } as unknown as User;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(
+    isFirebaseConfigured ? null : makeLocalGuestUser()
+  );
+  const [token, setToken] = useState<string | null>(
+    isFirebaseConfigured ? null : "mock-id-token-xyz"
+  );
+  const [loading, setLoading] = useState(isFirebaseConfigured);
 
   // Set up auth state listener; auto-sign-in anonymously if no user
   useEffect(() => {
+    if (!isFirebaseConfigured) return;
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
@@ -46,9 +66,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await signInAnonymously(auth);
           // onAuthStateChanged will fire again with the anonymous user
         } catch (err) {
-          console.error("Anonymous sign-in failed:", err);
-          setUser(null);
-          setToken(null);
+          console.error("Anonymous sign-in failed, falling back to mock user:", err);
+          const mockUser = {
+            uid: "mock-local-user-id",
+            isAnonymous: true,
+            email: null,
+            emailVerified: false,
+            displayName: "Local Guest",
+            getIdToken: async () => "mock-id-token-xyz",
+            getIdTokenResult: async () => ({ token: "mock-id-token-xyz" } as unknown as Awaited<ReturnType<User["getIdTokenResult"]>>),
+            reload: async () => {},
+            toJSON: () => ({}),
+          } as unknown as User;
+          setUser(mockUser);
+          setToken("mock-id-token-xyz");
           setLoading(false);
         }
       }

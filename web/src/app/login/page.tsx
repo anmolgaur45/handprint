@@ -38,7 +38,7 @@ export default function LoginPage() {
 
   // If user is signed in (non-anonymous), redirect to dashboard
   if (user && !isAnonymous) {
-    router.push("/");
+    router.push("/dashboard");
     return null;
   }
 
@@ -66,7 +66,7 @@ export default function LoginPage() {
           return;
         }
         await upgradeWithEmail(email, password);
-        router.push("/");
+        router.push("/dashboard");
       } else if (isSignUp) {
         // Fresh sign-up (shouldn't happen since we auto-anon, but handle gracefully)
         if (password !== confirmPassword) {
@@ -75,11 +75,11 @@ export default function LoginPage() {
           return;
         }
         await createUserWithEmailAndPassword(auth, email, password);
-        router.push("/");
+        router.push("/dashboard");
       } else {
         // Sign in to existing account
         await signInWithEmailAndPassword(auth, email, password);
-        router.push("/");
+        router.push("/dashboard");
       }
     } catch (err: unknown) {
       console.error(err);
@@ -115,7 +115,7 @@ export default function LoginPage() {
         const provider = new GoogleAuthProvider();
         await signInWithPopup(auth, provider);
       }
-      router.push("/");
+      router.push("/dashboard");
     } catch (err: unknown) {
       console.error(err);
       const error = err as { code?: string; message?: string };
@@ -194,7 +194,7 @@ export default function LoginPage() {
                   aria-describedby="login-email-hint"
                 />
               </div>
-              <p id="login-email-hint" className="text-[10px] text-zinc-600">Your email will not be shared.</p>
+              <p id="login-email-hint" className="text-[10px] text-zinc-400">Your email will not be shared.</p>
             </div>
 
             {/* Password Input */}
@@ -224,7 +224,7 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p id="login-password-hint" className="text-[10px] text-zinc-600">Minimum 6 characters.</p>
+              <p id="login-password-hint" className="text-[10px] text-zinc-400">Minimum 6 characters.</p>
             </div>
 
             {/* Confirm Password Input (only on signup) */}
@@ -253,7 +253,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex w-full items-center justify-center rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-zinc-50 transition hover:bg-emerald-500 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50 cursor-pointer shadow-lg shadow-emerald-700/10"
+              className="flex w-full items-center justify-center rounded-xl bg-emerald-500 py-3 text-sm font-bold text-zinc-950 transition hover:bg-emerald-400 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50 cursor-pointer shadow-lg shadow-emerald-500/10"
             >
               {isSubmitting ? (
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-50 border-t-transparent" />
@@ -270,7 +270,7 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="my-6 flex items-center justify-between">
             <span className="h-px w-[40%] bg-zinc-800" />
-            <span className="text-xs text-zinc-500 font-medium uppercase tracking-wider">or</span>
+            <span className="text-xs text-zinc-400 font-medium uppercase tracking-wider">or</span>
             <span className="h-px w-[40%] bg-zinc-800" />
           </div>
 
@@ -291,7 +291,7 @@ export default function LoginPage() {
 
         {/* Toggle Mode + Skip */}
         <div className="mt-6 space-y-3 text-center">
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-zinc-400">
             {isSignUp ? "Already have an account?" : "Need an account?"}{" "}
             <button
               onClick={() => {
@@ -308,7 +308,7 @@ export default function LoginPage() {
           {isAnonymous && (
             <Link
               href="/"
-              className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition"
+              className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-300 transition"
             >
               <span>Continue as guest</span>
               <span aria-hidden="true">&rarr;</span>
