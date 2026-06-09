@@ -63,8 +63,10 @@ async def test_get_streak_exists(client: AsyncClient) -> None:
 async def test_trip_logging_initializes_streak(client: AsyncClient) -> None:
     """Logging a trip when no streak exists should initialize it to 1."""
     mock_trip_repo = MagicMock(spec=TripLogRepository)
+
     async def mock_create(trip: TripLog) -> TripLog:
         return trip.model_copy(update={"id": "trip_123"})
+
     mock_trip_repo.create = AsyncMock(side_effect=mock_create)
 
     mock_streak_repo = MagicMock(spec=StreakRepository)
@@ -102,8 +104,10 @@ async def test_trip_logging_same_day_keeps_streak(client: AsyncClient) -> None:
         last_active_at=datetime.utcnow(),
     )
     mock_trip_repo = MagicMock(spec=TripLogRepository)
+
     async def mock_create(trip: TripLog) -> TripLog:
         return trip.model_copy(update={"id": "trip_123"})
+
     mock_trip_repo.create = AsyncMock(side_effect=mock_create)
 
     mock_streak_repo = MagicMock(spec=StreakRepository)
@@ -141,8 +145,10 @@ async def test_trip_logging_consecutive_day_increments_streak(client: AsyncClien
         last_active_at=yesterday,
     )
     mock_trip_repo = MagicMock(spec=TripLogRepository)
+
     async def mock_create(trip: TripLog) -> TripLog:
         return trip.model_copy(update={"id": "trip_123"})
+
     mock_trip_repo.create = AsyncMock(side_effect=mock_create)
 
     mock_streak_repo = MagicMock(spec=StreakRepository)
@@ -180,8 +186,10 @@ async def test_trip_logging_broken_streak_resets(client: AsyncClient) -> None:
         last_active_at=long_ago,
     )
     mock_trip_repo = MagicMock(spec=TripLogRepository)
+
     async def mock_create(trip: TripLog) -> TripLog:
         return trip.model_copy(update={"id": "trip_123"})
+
     mock_trip_repo.create = AsyncMock(side_effect=mock_create)
 
     mock_streak_repo = MagicMock(spec=StreakRepository)

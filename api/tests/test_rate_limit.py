@@ -45,7 +45,7 @@ class TestSlidingWindowRateLimiter:
 async def test_rate_limit_not_applied_to_health(client: AsyncClient) -> None:
     """Non-AI paths bypass the rate limiter entirely."""
     for _ in range(30):
-        resp = await client.get("/healthz")
+        resp = await client.get("/health")
         assert resp.status_code == 200
 
 

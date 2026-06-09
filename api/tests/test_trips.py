@@ -117,14 +117,11 @@ async def test_create_trip_validation_errors(client: AsyncClient) -> None:
     res = await client.post("/trips", json=payload_huge_dist, headers=headers)
     assert res.status_code == 422
 
-    # Case 3: Empty origin
-    payload_empty_origin = {
-        "origin": "",
-        "destination": "B",
+    # Case 3: missing mode
+    payload_no_mode = {
         "distance_km": 10.0,
-        "mode": "bus",
     }
-    res = await client.post("/trips", json=payload_empty_origin, headers=headers)
+    res = await client.post("/trips", json=payload_no_mode, headers=headers)
     assert res.status_code == 422
 
 

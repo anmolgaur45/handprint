@@ -1,42 +1,51 @@
-"""Tests for security-headers middleware."""
+"""Unit tests for the security headers middleware."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-import pytest
+from app.middleware.security_headers import SecurityHeadersMiddleware
 
-if TYPE_CHECKING:
-    from httpx import AsyncClient
-
-
-@pytest.mark.asyncio
-async def test_security_headers_present(client: AsyncClient) -> None:
-    """Every response carries the full security header set."""
-    resp = await client.get("/healthz")
-    assert resp.status_code == 200
-
-    assert resp.headers["content-security-policy"].startswith("default-src 'none'")
-    assert "max-age=" in resp.headers["strict-transport-security"]
-    assert resp.headers["x-frame-options"] == "DENY"
-    assert resp.headers["x-content-type-options"] == "nosniff"
-    assert resp.headers["referrer-policy"] == "strict-origin-when-cross-origin"
-    assert "camera=()" in resp.headers["permissions-policy"]
-    assert resp.headers["cross-origin-opener-policy"] == "same-origin"
-    assert resp.headers["cross-origin-resource-policy"] == "same-origin"
+app = FastAPI()
+app.add_middleware(SecurityHeadersMiddleware)
 
 
-@pytest.mark.asyncio
-async def test_x_request_id_generated(client: AsyncClient) -> None:
-    """A fresh X-Request-ID is generated when none is provided."""
-    resp = await client.get("/healthz")
-    request_id = resp.headers.get("x-request-id")
-    assert request_id is not None
-    assert len(request_id) == 32  # uuid4 hex
+@app.get("/test-headers")
+async def handle_get() -> dict[str, str]:
+    return {"status": "ok"}
 
 
-@pytest.mark.asyncio
-async def test_x_request_id_forwarded(client: AsyncClient) -> None:
-    """An incoming X-Request-ID is forwarded through."""
-    resp = await client.get("/healthz", headers={"x-request-id": "test-id-123"})
-    assert resp.headers["x-request-id"] == "test-id-123"
+def test_security_headers_injected() -> None:
+    client = TestClient(app)
+    response = client.get("/test-headers")
+    assert response.status_code == 200
+
+    headers = response.headers
+
+    # Verify all expected security headers from §6 / security_headers.py
+    assert "Content-Security-Policy" in headers
+    assert "default-src 'none'" in headers["Content-Security-Policy"]
+    assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
+
+    assert headers["Strict-Transport-Security"] == "max-age=63072000; includeSubDomains; preload"
+    assert headers["X-Frame-Options"] == "DENY"
+    assert headers["X-Content-Type-Options"] == "nosniff"
+    assert headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+
+    assert "camera=()" in headers["Permissions-Policy"]
+    assert "geolocation=()" in headers["Permissions-Policy"]
+
+    assert headers["Cross-Origin-Opener-Policy"] == "same-origin"
+    assert headers["Cross-Origin-Resource-Policy"] == "same-origin"
+
+    # Request ID check
+    assert "X-Request-ID" in headers
+
+
+def test_security_headers_custom_request_id() -> None:
+    client = TestClient(app)
+    # If client passes X-Request-ID, the middleware should preserve and echo it
+    custom_id = "test-req-12345"
+    response = client.get("/test-headers", headers={"X-Request-ID": custom_id})
+    assert response.headers["X-Request-ID"] == custom_id

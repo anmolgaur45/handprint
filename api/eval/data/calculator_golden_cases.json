@@ -1,0 +1,118 @@
+{
+  "transport": [
+    {
+      "mode": "petrol_car",
+      "distance_km": 10.0,
+      "expected_co2e_kg": 1.6489
+    },
+    {
+      "mode": "diesel_car",
+      "distance_km": 50.0,
+      "expected_co2e_kg": 8.199
+    },
+    {
+      "mode": "ev_car",
+      "distance_km": 100.0,
+      "expected_co2e_kg": 4.69
+    },
+    {
+      "mode": "hybrid_car",
+      "distance_km": 15.0,
+      "expected_co2e_kg": 1.725
+    },
+    {
+      "mode": "motorbike",
+      "distance_km": 20.0,
+      "expected_co2e_kg": 2.2654
+    },
+    {
+      "mode": "bus",
+      "distance_km": 25.0,
+      "expected_co2e_kg": 2.4145
+    },
+    {
+      "mode": "train",
+      "distance_km": 150.0,
+      "expected_co2e_kg": 5.3235
+    },
+    {
+      "mode": "metro",
+      "distance_km": 8.0,
+      "expected_co2e_kg": 0.22248
+    },
+    {
+      "mode": "bicycle",
+      "distance_km": 12.0,
+      "expected_co2e_kg": 0.0
+    },
+    {
+      "mode": "walking",
+      "distance_km": 3.0,
+      "expected_co2e_kg": 0.0
+    }
+  ],
+  "food": [
+    {
+      "item": "beef",
+      "weight_kg": 0.5,
+      "expected_co2e_kg": 49.74
+    },
+    {
+      "item": "chicken",
+      "weight_kg": 1.2,
+      "expected_co2e_kg": 11.844
+    },
+    {
+      "item": "pork",
+      "weight_kg": 0.8,
+      "expected_co2e_kg": 9.848
+    },
+    {
+      "item": "fish",
+      "weight_kg": 0.6,
+      "expected_co2e_kg": 8.178
+    },
+    {
+      "item": "milk",
+      "weight_kg": 2.0,
+      "expected_co2e_kg": 6.3
+    },
+    {
+      "item": "eggs",
+      "weight_kg": 1.0,
+      "expected_co2e_kg": 4.67
+    },
+    {
+      "item": "rice",
+      "weight_kg": 1.5,
+      "expected_co2e_kg": 6.675
+    },
+    {
+      "item": "wheat",
+      "weight_kg": 2.5,
+      "expected_co2e_kg": 3.5
+    },
+    {
+      "item": "vegetables",
+      "weight_kg": 3.0,
+      "expected_co2e_kg": 1.59
+    },
+    {
+      "item": "fruit",
+      "weight_kg": 1.5,
+      "expected_co2e_kg": 0.645
+    }
+  ],
+  "energy": [
+    {
+      "source": "electricity",
+      "quantity": 100.0,
+      "expected_co2e_kg": 72.7
+    },
+    {
+      "source": "lpg",
+      "quantity": 14.2,
+      "expected_co2e_kg": 41.73238
+    }
+  ]
+}

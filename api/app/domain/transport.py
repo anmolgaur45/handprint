@@ -27,11 +27,7 @@ class TransportEstimator(EmissionEstimator[TransportActivity]):
 
     def _get_factor_key(self, mode: str) -> str:
         """Map common transport mode shorthand names to standard dataset keys."""
-        if (
-            mode.startswith("transport.")
-            or mode.startswith("energy.")
-            or mode.startswith("food.")
-        ):
+        if mode.startswith("transport.") or mode.startswith("energy.") or mode.startswith("food."):
             return mode
 
         # Normalize shorthands

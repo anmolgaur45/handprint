@@ -4,8 +4,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from google.cloud.firestore import AsyncClient
 
-from app.domain.models import CommittedAction, TripLog, UserStreak
+from app.domain.models import CommittedAction, EnergyLog, FoodLog, TripLog, UserStreak
 from app.repositories.committed_action import CommittedActionRepository
+from app.repositories.energy_log import EnergyLogRepository
+from app.repositories.food_log import FoodLogRepository
 from app.repositories.streak import StreakRepository
 from app.repositories.trip_log import TripLogRepository
 
@@ -251,3 +253,117 @@ async def test_streak_repository_upsert() -> None:
     mock_db.collection.assert_called_once_with("streaks")
     mock_collection.document.assert_called_once_with("user_123")
     mock_doc_ref.set.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_food_log_repository_create_and_list() -> None:
+    """Test creating and listing in FoodLogRepository."""
+    mock_db = MagicMock(spec=AsyncClient)
+    mock_collection = MagicMock()
+    mock_doc_ref = MagicMock()
+    mock_doc_ref.id = "mock_food_123"
+    mock_doc_ref.set = AsyncMock()
+
+    mock_db.collection.return_value = mock_collection
+    mock_collection.document.return_value = mock_doc_ref
+
+    repo = FoodLogRepository(db=mock_db)
+    food = FoodLog(
+        user_id="user_123",
+        item="beef",
+        weight_kg=1.0,
+        co2e_kg=99.48,
+        citation="Poore",
+        effective_year=2018,
+    )
+
+    created = await repo.create(food)
+    assert created.id == "mock_food_123"
+    mock_db.collection.assert_called_once_with("food_logs")
+    mock_doc_ref.set.assert_called_once()
+
+    # Test list_by_user
+    mock_query = MagicMock()
+    mock_ordered = MagicMock()
+    mock_collection.where.return_value = mock_query
+    mock_query.order_by.return_value = mock_ordered
+
+    timestamp = datetime.utcnow()
+    mock_ordered.stream.return_value = MockStream(
+        [
+            MockDocument(
+                "food_1",
+                {
+                    "user_id": "user_123",
+                    "item": "beef",
+                    "weight_kg": 1.0,
+                    "co2e_kg": 99.48,
+                    "timestamp": timestamp,
+                    "citation": "Poore",
+                    "effective_year": 2018,
+                },
+            )
+        ]
+    )
+
+    logs = await repo.list_by_user("user_123")
+    assert len(logs) == 1
+    assert logs[0].id == "food_1"
+    assert logs[0].item == "beef"
+
+
+@pytest.mark.asyncio
+async def test_energy_log_repository_create_and_list() -> None:
+    """Test creating and listing in EnergyLogRepository."""
+    mock_db = MagicMock(spec=AsyncClient)
+    mock_collection = MagicMock()
+    mock_doc_ref = MagicMock()
+    mock_doc_ref.id = "mock_energy_123"
+    mock_doc_ref.set = AsyncMock()
+
+    mock_db.collection.return_value = mock_collection
+    mock_collection.document.return_value = mock_doc_ref
+
+    repo = EnergyLogRepository(db=mock_db)
+    energy = EnergyLog(
+        user_id="user_123",
+        source="electricity",
+        quantity=50.0,
+        co2e_kg=36.35,
+        citation="CEA",
+        effective_year=2024,
+    )
+
+    created = await repo.create(energy)
+    assert created.id == "mock_energy_123"
+    mock_db.collection.assert_called_once_with("energy_logs")
+    mock_doc_ref.set.assert_called_once()
+
+    # Test list_by_user
+    mock_query = MagicMock()
+    mock_ordered = MagicMock()
+    mock_collection.where.return_value = mock_query
+    mock_query.order_by.return_value = mock_ordered
+
+    timestamp = datetime.utcnow()
+    mock_ordered.stream.return_value = MockStream(
+        [
+            MockDocument(
+                "energy_1",
+                {
+                    "user_id": "user_123",
+                    "source": "electricity",
+                    "quantity": 50.0,
+                    "co2e_kg": 36.35,
+                    "timestamp": timestamp,
+                    "citation": "CEA",
+                    "effective_year": 2024,
+                },
+            )
+        ]
+    )
+
+    logs = await repo.list_by_user("user_123")
+    assert len(logs) == 1
+    assert logs[0].id == "energy_1"
+    assert logs[0].source == "electricity"

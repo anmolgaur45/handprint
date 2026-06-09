@@ -78,9 +78,7 @@ def test_get_current_user_id_anonymous_token() -> None:
     Anonymous tokens are standard Firebase ID tokens with a uid and
     provider_id 'anonymous'. The middleware should accept them identically.
     """
-    credentials = HTTPAuthorizationCredentials(
-        scheme="Bearer", credentials="anon_token"
-    )
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="anon_token")
 
     with patch("app.middleware.auth.auth.verify_id_token") as mock_verify:
         mock_verify.return_value = {
@@ -91,4 +89,3 @@ def test_get_current_user_id_anonymous_token() -> None:
         uid = get_current_user_id(credentials)
         assert uid == "anon_user_abc123"
         mock_verify.assert_called_once_with("anon_token")
-

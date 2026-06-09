@@ -1,0 +1,66 @@
+[
+  {
+    "query": "took a bus from Indiranagar to Koramangala",
+    "expected": {
+      "origin": "Indiranagar",
+      "destination": "Koramangala",
+      "mode": "bus"
+    }
+  },
+  {
+    "query": "drove my petrol car from home to the airport",
+    "expected": {
+      "origin": "home",
+      "destination": "the airport",
+      "mode": "petrol_car"
+    }
+  },
+  {
+    "query": "took a train from Berlin to Paris",
+    "expected": {
+      "origin": "Berlin",
+      "destination": "Paris",
+      "mode": "train"
+    }
+  },
+  {
+    "query": "walked around the park",
+    "expected": {
+      "origin": null,
+      "destination": null,
+      "mode": "walking"
+    }
+  },
+  {
+    "query": "rode metro from station A to station B",
+    "expected": {
+      "origin": "station A",
+      "destination": "station B",
+      "mode": "metro"
+    }
+  },
+  {
+    "query": "cycled 5km",
+    "expected": {
+      "origin": null,
+      "destination": null,
+      "mode": "bicycle"
+    }
+  },
+  {
+    "query": "drove to the hospital in an EV car",
+    "expected": {
+      "origin": null,
+      "destination": "the hospital",
+      "mode": "ev_car"
+    }
+  },
+  {
+    "query": "hybrid car drive from Mumbai to Pune",
+    "expected": {
+      "origin": "Mumbai",
+      "destination": "Pune",
+      "mode": "hybrid_car"
+    }
+  }
+]

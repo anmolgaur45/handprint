@@ -68,9 +68,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.limiter = limiter
         self.path_prefix = path_prefix
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if not request.url.path.startswith(self.path_prefix):
             return await call_next(request)
 
@@ -83,7 +81,5 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             )
 
         response = await call_next(request)
-        response.headers["X-RateLimit-Remaining"] = str(
-            self.limiter.remaining(client_ip)
-        )
+        response.headers["X-RateLimit-Remaining"] = str(self.limiter.remaining(client_ip))
         return response

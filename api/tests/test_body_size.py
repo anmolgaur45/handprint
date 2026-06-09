@@ -44,6 +44,7 @@ async def test_body_size_over_limit_header(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_body_size_over_limit_stream(client: AsyncClient) -> None:
     """If Content-Length is missing or lies, streaming catches it."""
+
     # Build a generator to send chunked, bypassing Content-Length
     async def chunk_generator() -> AsyncGenerator[bytes, None]:
         yield b"x" * 10_000

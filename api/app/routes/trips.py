@@ -5,11 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.clients.distance_matrix import DistanceMatrixClient
+from app.clients.vertex import VertexClient
 from app.core.dependencies import (
     get_distance_matrix_client,
     get_streak_repository,
     get_transport_estimator,
     get_trip_log_repository,
+    get_vertex_client,
 )
 from app.domain.models import TripLog, UserStreak
 from app.domain.transport import TransportActivity, TransportEstimator
@@ -23,12 +25,8 @@ router = APIRouter(prefix="/trips", tags=["trips"])
 class TripCreateRequest(BaseModel):
     """Request schema for creating a new trip log with strict validation bounds."""
 
-    origin: str = Field(
-        ..., min_length=1, max_length=256, description="Starting location name"
-    )
-    destination: str = Field(
-        ..., min_length=1, max_length=256, description="Ending location name"
-    )
+    origin: str = Field(default="", max_length=256, description="Starting location (optional)")
+    destination: str = Field(default="", max_length=256, description="Ending location (optional)")
     distance_km: float = Field(
         ..., gt=0.0, le=10000.0, description="Distance traveled in kilometers"
     )
@@ -168,3 +166,40 @@ async def get_trip_distance(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
+
+
+class TripParseRequest(BaseModel):
+    """Payload for natural language travel parser."""
+
+    text: str = Field(..., min_length=1, max_length=1000, description="Description of the journey")
+
+
+class TripParseResponse(BaseModel):
+    """Structured response containing extracted journey fields."""
+
+    origin: str | None = Field(default=None, description="Extracted starting location")
+    destination: str | None = Field(default=None, description="Extracted ending location")
+    mode: str | None = Field(default=None, description="Extracted transportation mode")
+
+
+@router.post(
+    "/parse",
+    response_model=TripParseResponse,
+    summary="Parse travel details from description",
+)
+async def parse_trip_text(
+    request: TripParseRequest,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+    vertex_client: Annotated[VertexClient, Depends(get_vertex_client)],
+) -> TripParseResponse:
+    """Parse travel info using Vertex AI Gemini, falling back gracefully to nulls."""
+    try:
+        parsed = await vertex_client.parse_trip(request.text)
+        return TripParseResponse(
+            origin=parsed.get("origin"),
+            destination=parsed.get("destination"),
+            mode=parsed.get("mode"),
+        )
+    except Exception:
+        # Fallback gracefully to null structures on exception
+        return TripParseResponse()

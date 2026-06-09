@@ -17,12 +17,14 @@ if TYPE_CHECKING:
     from starlette.responses import Response
 
 # Content-Security-Policy: API-only service, so restrict everything.
-_CSP = "; ".join([
-    "default-src 'none'",
-    "frame-ancestors 'none'",
-    "base-uri 'none'",
-    "form-action 'none'",
-])
+_CSP = "; ".join(
+    [
+        "default-src 'none'",
+        "frame-ancestors 'none'",
+        "base-uri 'none'",
+        "form-action 'none'",
+    ]
+)
 
 _SECURITY_HEADERS: dict[str, str] = {
     "Content-Security-Policy": _CSP,
@@ -42,9 +44,7 @@ _SECURITY_HEADERS: dict[str, str] = {
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Inject security headers and a per-request X-Request-ID."""
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
         response = await call_next(request)
         for header, value in _SECURITY_HEADERS.items():

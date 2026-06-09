@@ -5,8 +5,10 @@ from datetime import datetime
 import pytest
 from google.cloud.firestore import AsyncClient
 
-from app.domain.models import CommittedAction, TripLog, UserStreak
+from app.domain.models import CommittedAction, EnergyLog, FoodLog, TripLog, UserStreak
 from app.repositories.committed_action import CommittedActionRepository
+from app.repositories.energy_log import EnergyLogRepository
+from app.repositories.food_log import FoodLogRepository
 from app.repositories.streak import StreakRepository
 from app.repositories.trip_log import TripLogRepository
 
@@ -25,7 +27,7 @@ async def emulator_db() -> AsyncIterator[AsyncClient]:
     yield db
 
     # Clean up test collections
-    for coll_name in ["trips", "committed_actions", "streaks"]:
+    for coll_name in ["trips", "committed_actions", "streaks", "food_logs", "energy_logs"]:
         coll_ref = db.collection(coll_name)
         async for doc in coll_ref.stream():
             await doc.reference.delete()
@@ -105,3 +107,45 @@ async def test_streak_repository_with_emulator(emulator_db: AsyncClient) -> None
     assert fetched is not None
     assert fetched.current_streak == 4
     assert fetched.longest_streak == 6
+
+
+@pytest.mark.asyncio
+async def test_food_log_repository_with_emulator(emulator_db: AsyncClient) -> None:
+    """Verify food log repository operations against the emulator."""
+    repo = FoodLogRepository(db=emulator_db)
+    food = FoodLog(
+        user_id="user_emulator",
+        item="beef",
+        weight_kg=0.5,
+        co2e_kg=49.74,
+        citation="Poore",
+        effective_year=2018,
+    )
+    created = await repo.create(food)
+    assert created.id is not None
+
+    logs = await repo.list_by_user("user_emulator")
+    assert len(logs) == 1
+    assert logs[0].id == created.id
+    assert logs[0].item == "beef"
+
+
+@pytest.mark.asyncio
+async def test_energy_log_repository_with_emulator(emulator_db: AsyncClient) -> None:
+    """Verify energy log repository operations against the emulator."""
+    repo = EnergyLogRepository(db=emulator_db)
+    energy = EnergyLog(
+        user_id="user_emulator",
+        source="electricity",
+        quantity=20.0,
+        co2e_kg=14.54,
+        citation="CEA",
+        effective_year=2024,
+    )
+    created = await repo.create(energy)
+    assert created.id is not None
+
+    logs = await repo.list_by_user("user_emulator")
+    assert len(logs) == 1
+    assert logs[0].id == created.id
+    assert logs[0].source == "electricity"

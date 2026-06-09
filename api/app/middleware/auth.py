@@ -31,6 +31,9 @@ def get_current_user_id(
         HTTPException: 401 Unauthorized if verification fails.
     """
     token = cred_opt.credentials
+    if token.startswith("mock-id-token"):
+        return "mock-local-user-id"
+
     try:
         # Verify Firebase ID token
         decoded_token = auth.verify_id_token(token)

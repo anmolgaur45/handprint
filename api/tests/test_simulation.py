@@ -227,9 +227,7 @@ async def test_simulate_endpoint_success_ev_swap(client: AsyncClient) -> None:
 
     assert pytest.approx(data["base_annual_co2e_kg"]) == expected_base
     assert pytest.approx(data["annual_savings_co2e_kg"]) == expected_savings
-    assert pytest.approx(data["percentage_reduction"]) == (
-        (0.16489 - 0.04690) / 0.16489 * 100.0
-    )
+    assert pytest.approx(data["percentage_reduction"]) == ((0.16489 - 0.04690) / 0.16489 * 100.0)
 
 
 @pytest.mark.asyncio

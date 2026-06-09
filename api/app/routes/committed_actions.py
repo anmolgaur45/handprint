@@ -14,16 +14,12 @@ router = APIRouter(prefix="/committed_actions", tags=["committed_actions"])
 class CommittedActionCreateRequest(BaseModel):
     """Schema for pledging a new carbon reduction action."""
 
-    action_key: str = Field(
-        ..., min_length=1, max_length=128, description="Action identifier key"
-    )
+    action_key: str = Field(..., min_length=1, max_length=128, description="Action identifier key")
     title: str = Field(..., min_length=1, max_length=256, description="Description of action")
     category: str = Field(
         ..., min_length=1, max_length=50, description="E.g. transport, food, energy"
     )
-    projected_savings_kg: float = Field(
-        ..., ge=0.0, description="Projected annual kg CO2e saved"
-    )
+    projected_savings_kg: float = Field(..., ge=0.0, description="Projected annual kg CO2e saved")
 
 
 class CommittedActionStatusRequest(BaseModel):
