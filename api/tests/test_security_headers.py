@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -23,10 +25,10 @@ def test_security_headers_injected() -> None:
 
     headers = response.headers
 
-    # Verify all expected security headers from §6 / security_headers.py
     assert "Content-Security-Policy" in headers
     assert "default-src 'none'" in headers["Content-Security-Policy"]
     assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
+    assert "strict-dynamic" in headers["Content-Security-Policy"]
 
     assert headers["Strict-Transport-Security"] == "max-age=63072000; includeSubDomains; preload"
     assert headers["X-Frame-Options"] == "DENY"
@@ -39,13 +41,33 @@ def test_security_headers_injected() -> None:
     assert headers["Cross-Origin-Opener-Policy"] == "same-origin"
     assert headers["Cross-Origin-Resource-Policy"] == "same-origin"
 
-    # Request ID check
     assert "X-Request-ID" in headers
 
 
-def test_security_headers_custom_request_id() -> None:
+def test_csp_nonce_present() -> None:
+    """Every response must carry a base64 nonce in the CSP script-src directive."""
     client = TestClient(app)
-    # If client passes X-Request-ID, the middleware should preserve and echo it
+    response = client.get("/test-headers")
+    csp = response.headers["Content-Security-Policy"]
+    # nonce-<base64> where base64 uses A-Za-z0-9+/= characters
+    assert re.search(r"'nonce-[A-Za-z0-9+/=]+'", csp), f"No nonce found in CSP: {csp}"
+
+
+def test_csp_nonce_unique_per_request() -> None:
+    """Each response must have a distinct nonce to prevent replay attacks."""
+    client = TestClient(app)
+    nonces: set[str] = set()
+    for _ in range(5):
+        csp = client.get("/test-headers").headers["Content-Security-Policy"]
+        match = re.search(r"'nonce-([A-Za-z0-9+/=]+)'", csp)
+        assert match, f"No nonce found in CSP: {csp}"
+        nonces.add(match.group(1))
+    assert len(nonces) == 5, "Expected unique nonce per request; got duplicates"
+
+
+def test_security_headers_custom_request_id() -> None:
+    """If client passes X-Request-ID the middleware preserves and echoes it."""
+    client = TestClient(app)
     custom_id = "test-req-12345"
     response = client.get("/test-headers", headers={"X-Request-ID": custom_id})
     assert response.headers["X-Request-ID"] == custom_id

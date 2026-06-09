@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -80,7 +80,7 @@ async def test_trip_log_repository_list() -> None:
     mock_query.order_by.return_value = mock_ordered_query
 
     # Setup mock stream docs
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(UTC)
     mock_doc_1 = MockDocument(
         "trip_1",
         {
@@ -157,7 +157,7 @@ async def test_committed_action_repository_list() -> None:
             "title": "Do X",
             "category": "energy",
             "projected_savings_kg": 100.0,
-            "committed_at": datetime.utcnow(),
+            "committed_at": datetime.now(UTC),
             "status": "active",
         },
     )
@@ -211,7 +211,7 @@ async def test_streak_repository_get() -> None:
     repo = StreakRepository(db=mock_db)
 
     # 1. Streak exists
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(UTC)
     mock_doc_ref.get = AsyncMock(
         return_value=MockDocument(
             "user_123", {"current_streak": 5, "longest_streak": 10, "last_active_at": timestamp}
@@ -244,7 +244,7 @@ async def test_streak_repository_upsert() -> None:
 
     repo = StreakRepository(db=mock_db)
     streak = UserStreak(
-        user_id="user_123", current_streak=3, longest_streak=5, last_active_at=datetime.utcnow()
+        user_id="user_123", current_streak=3, longest_streak=5, last_active_at=datetime.now(UTC)
     )
 
     result = await repo.upsert(streak)
@@ -288,7 +288,7 @@ async def test_food_log_repository_create_and_list() -> None:
     mock_collection.where.return_value = mock_query
     mock_query.order_by.return_value = mock_ordered
 
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(UTC)
     mock_ordered.stream.return_value = MockStream(
         [
             MockDocument(
@@ -345,7 +345,7 @@ async def test_energy_log_repository_create_and_list() -> None:
     mock_collection.where.return_value = mock_query
     mock_query.order_by.return_value = mock_ordered
 
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(UTC)
     mock_ordered.stream.return_value = MockStream(
         [
             MockDocument(

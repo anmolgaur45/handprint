@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.middleware.csrf import CSRFMiddleware
@@ -12,21 +12,28 @@ app.add_middleware(CSRFMiddleware)
 
 
 @app.post("/test-post")
-async def handle_post(request: Request) -> dict[str, str]:
+async def handle_post() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @app.get("/test-get")
-async def handle_get(request: Request) -> dict[str, str]:
+async def handle_get() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def test_csrf_no_headers_passes() -> None:
+def test_csrf_no_headers_blocked() -> None:
     client = TestClient(app)
-    # Without Origin/Referer (e.g. native client or same-site backend fetch), pass through
+    # Both Origin and Referer absent on a state-changing method must be rejected
+    response = client.post("/test-post", headers={"origin": "", "referer": ""})
+    assert response.status_code == 403
+    assert "absent" in response.json()["detail"]
+
+
+def test_csrf_no_headers_at_all_blocked() -> None:
+    client = TestClient(app, raise_server_exceptions=False)
+    # Truly no Origin/Referer headers — same 403 expected
     response = client.post("/test-post")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.status_code == 403
 
 
 def test_csrf_same_origin_passes() -> None:

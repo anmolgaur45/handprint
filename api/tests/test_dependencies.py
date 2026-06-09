@@ -4,9 +4,7 @@ import httpx
 import pytest
 from google.cloud.firestore import AsyncClient
 
-from app.clients.air_quality import AirQualityClient
 from app.clients.distance_matrix import DistanceMatrixClient
-from app.clients.places import PlacesClient
 from app.clients.vertex import VertexClient
 from app.core import dependencies
 from app.domain.transport import TransportEstimator
@@ -62,21 +60,12 @@ async def test_dependencies_wiring_and_stubs() -> None:
     assert vertex.location == "asia-south1"
     assert vertex.model_name == "gemini-2.0-flash"
 
-    # 6. Integration Clients
+    # 6. Distance Matrix client
     dm_client = await dependencies.get_distance_matrix_client()
     assert isinstance(dm_client, DistanceMatrixClient)
     assert dm_client.http_client == http_client
 
-    places_client = await dependencies.get_places_client()
-    assert isinstance(places_client, PlacesClient)
-    assert places_client.http_client == http_client
-
-    aq_client = await dependencies.get_air_quality_client()
-    assert isinstance(aq_client, AirQualityClient)
-    assert aq_client.http_client == http_client
-
     # 7. Lifespan Cleanup / close_clients
-    # Set firestore mock client back
     dependencies._firestore_client = mock_db
     await dependencies.close_clients()
 

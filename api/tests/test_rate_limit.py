@@ -50,16 +50,26 @@ async def test_rate_limit_not_applied_to_health(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_rate_limit_triggers_on_ai_path(client: AsyncClient) -> None:
-    """AI paths return 429 after exceeding the limit."""
-    # The test app uses the default settings: 20 requests / 60s window.
-    # We hit a nonexistent /ai/test path — the rate limiter fires before routing.
+async def test_rate_limit_triggers_on_insights(client: AsyncClient) -> None:
+    """Rate limiter fires 429 on /insights after exhausting the per-IP budget."""
+    # Default: 20 requests / 60 s. /insights requires auth so responses are 401,
+    # but the rate limiter runs before auth and counts every request.
     for i in range(20):
-        resp = await client.get("/ai/test")
-        # 404 is expected (no route), but rate limiter should still allow
-        assert resp.status_code == 404, f"request {i} unexpected status {resp.status_code}"
+        resp = await client.get("/insights")
+        assert resp.status_code != 429, f"request {i} hit rate limit too early"
 
-    # 21st request should be rate-limited
-    resp = await client.get("/ai/test")
+    # 21st request must be rate-limited
+    resp = await client.get("/insights")
     assert resp.status_code == 429
     assert resp.json()["detail"] == "rate limit exceeded"
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_triggers_on_trips_parse(client: AsyncClient) -> None:
+    """Rate limiter also covers /trips/parse."""
+    for i in range(20):
+        resp = await client.post("/trips/parse", json={"text": "test"})
+        assert resp.status_code != 429, f"request {i} hit rate limit too early"
+
+    resp = await client.post("/trips/parse", json={"text": "test"})
+    assert resp.status_code == 429

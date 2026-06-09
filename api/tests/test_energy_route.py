@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -33,7 +33,7 @@ def cleanup_overrides() -> None:
 async def test_create_energy_log_success(client: AsyncClient) -> None:
     """Test successful creation of an energy log."""
     mock_repo = MagicMock(spec=EnergyLogRepository)
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(UTC)
 
     async def mock_create(log: EnergyLog) -> EnergyLog:
         return log.model_copy(update={"id": "energy_123", "timestamp": timestamp})
@@ -74,7 +74,7 @@ async def test_create_energy_log_invalid_source(client: AsyncClient) -> None:
 async def test_list_energy_logs(client: AsyncClient) -> None:
     """Test retrieving energy logs list for user."""
     mock_repo = MagicMock(spec=EnergyLogRepository)
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(UTC)
     mock_logs = [
         EnergyLog(
             id="energy_1",
@@ -119,11 +119,9 @@ async def test_create_energy_log_streak_increment_consecutive(client: AsyncClien
     )
 
     # Mock user streak from yesterday
-    from datetime import timedelta
-
     from app.domain.models import UserStreak
 
-    yesterday = datetime.utcnow() - timedelta(days=1)
+    yesterday = datetime.now(UTC) - timedelta(days=1)
     mock_streak_repo = MagicMock(spec=StreakRepository)
     mock_streak_repo.get_by_user = AsyncMock(
         return_value=UserStreak(
@@ -167,7 +165,7 @@ async def test_create_energy_log_streak_same_day(client: AsyncClient) -> None:
     # Mock user streak from today
     from app.domain.models import UserStreak
 
-    today = datetime.utcnow()
+    today = datetime.now(UTC)
     mock_streak_repo = MagicMock(spec=StreakRepository)
     mock_streak_repo.get_by_user = AsyncMock(
         return_value=UserStreak(
@@ -208,11 +206,9 @@ async def test_create_energy_log_streak_broken(client: AsyncClient) -> None:
     )
 
     # Mock user streak from 5 days ago
-    from datetime import timedelta
-
     from app.domain.models import UserStreak
 
-    long_ago = datetime.utcnow() - timedelta(days=5)
+    long_ago = datetime.now(UTC) - timedelta(days=5)
     mock_streak_repo = MagicMock(spec=StreakRepository)
     mock_streak_repo.get_by_user = AsyncMock(
         return_value=UserStreak(

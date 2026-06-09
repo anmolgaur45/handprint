@@ -67,3 +67,7 @@ jobs:
       - name: Build Next.js app
         working-directory: ./web
         run: npm run build
+
+      - name: Scan client bundle for secrets
+        working-directory: ./web
+        run: npm run scan-bundle

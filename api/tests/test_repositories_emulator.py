@@ -1,6 +1,6 @@
 import os
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 from google.cloud.firestore import AsyncClient
@@ -93,7 +93,7 @@ async def test_committed_action_repository_with_emulator(emulator_db: AsyncClien
 async def test_streak_repository_with_emulator(emulator_db: AsyncClient) -> None:
     """Verify streak tracking operations using the Firestore emulator."""
     repo = StreakRepository(db=emulator_db)
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(UTC)
 
     # 1. Upsert streak
     streak = UserStreak(

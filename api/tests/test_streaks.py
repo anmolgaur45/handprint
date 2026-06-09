@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -101,7 +101,7 @@ async def test_trip_logging_same_day_keeps_streak(client: AsyncClient) -> None:
         user_id="user_1",
         current_streak=3,
         longest_streak=5,
-        last_active_at=datetime.utcnow(),
+        last_active_at=datetime.now(UTC),
     )
     mock_trip_repo = MagicMock(spec=TripLogRepository)
 
@@ -137,7 +137,7 @@ async def test_trip_logging_same_day_keeps_streak(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_trip_logging_consecutive_day_increments_streak(client: AsyncClient) -> None:
     """Logging a trip on the consecutive day should increment the streak."""
-    yesterday = datetime.utcnow() - timedelta(days=1)
+    yesterday = datetime.now(UTC) - timedelta(days=1)
     existing_streak = UserStreak(
         user_id="user_1",
         current_streak=3,
@@ -178,7 +178,7 @@ async def test_trip_logging_consecutive_day_increments_streak(client: AsyncClien
 @pytest.mark.asyncio
 async def test_trip_logging_broken_streak_resets(client: AsyncClient) -> None:
     """Logging a trip after a gap of multiple days resets current streak to 1."""
-    long_ago = datetime.utcnow() - timedelta(days=5)
+    long_ago = datetime.now(UTC) - timedelta(days=5)
     existing_streak = UserStreak(
         user_id="user_1",
         current_streak=3,

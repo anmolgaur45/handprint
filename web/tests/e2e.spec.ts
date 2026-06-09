@@ -2,10 +2,7 @@ import { test, expect, Page, Route } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 async function setupMocks(page: Page) {
-  page.on("request", request => console.log(">> REQUEST:", request.method(), request.url(), request.postData()));
-  page.on("response", response => console.log("<< RESPONSE:", response.status(), response.url()));
-
-  // Mock Firebase Auth REST endpoints
+  // Firebase Auth
   await page.route(/identitytoolkit\.googleapis\.com\/v1\/accounts/, async (route: Route) => {
     const url = route.request().url();
     if (url.includes("signUp")) {
@@ -50,8 +47,8 @@ async function setupMocks(page: Page) {
         contentType: "application/json",
         body: JSON.stringify({
           kind: "identitytoolkit#GetAccountInfoResponse",
-          users: [{ localId: "mock-local-id-xyz", email: "mock-user@example.com", emailVerified: false }]
-        })
+          users: [{ localId: "mock-local-id-xyz", email: "mock-user@example.com", emailVerified: false }],
+        }),
       });
     } else {
       await route.fallback();
@@ -74,26 +71,12 @@ async function setupMocks(page: Page) {
     });
   });
 
-  // Mock Backend REST endpoints
+  // Backend: trips/parse must be registered before trips to avoid glob collision
   await page.route("**/trips/parse", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        origin: "Delhi",
-        destination: "Noida",
-        mode: "ev_car"
-      }),
-    });
-  });
-
-  await page.route("**/trips/distance**", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        distance_km: 50.0
-      }),
+      body: JSON.stringify({ origin: "Delhi", destination: "Noida", mode: "ev_car" }),
     });
   });
 
@@ -106,7 +89,7 @@ async function setupMocks(page: Page) {
         base_annual_co2e_kg: 2400.0,
         projected_annual_co2e_kg: 1200.0,
         annual_savings_co2e_kg: 1200.0,
-        percentage_reduction: 50.0
+        percentage_reduction: 50.0,
       }),
     });
   });
@@ -114,15 +97,19 @@ async function setupMocks(page: Page) {
   await page.route("**/trips", async (route: Route) => {
     if (route.request().method() === "POST") {
       await route.fulfill({
-        status: 200,
+        status: 201,
         contentType: "application/json",
         body: JSON.stringify({
           id: "mock-trip-id",
-          origin: "Delhi",
-          destination: "Noida",
+          user_id: "mock-local-id-xyz",
+          origin: "",
+          destination: "",
           distance_km: 50.0,
           mode: "ev_car",
-          co2e_kg: 2.34
+          co2e_kg: 2.345,
+          citation: "UK DESNZ/DEFRA GHG Conversion Factors",
+          effective_year: 2024,
+          timestamp: "2026-06-10T12:00:00Z",
         }),
       });
     } else {
@@ -132,13 +119,16 @@ async function setupMocks(page: Page) {
         body: JSON.stringify([
           {
             id: "mock-trip-id-1",
-            origin: "Delhi",
-            destination: "Noida",
+            user_id: "mock-local-id-xyz",
+            origin: "",
+            destination: "",
             distance_km: 50.0,
             mode: "ev_car",
-            co2e_kg: 2.34,
-            timestamp: "2026-06-09T12:00:00Z"
-          }
+            co2e_kg: 2.345,
+            citation: "UK DESNZ/DEFRA GHG Conversion Factors",
+            effective_year: 2024,
+            timestamp: "2026-06-10T12:00:00Z",
+          },
         ]),
       });
     }
@@ -154,7 +144,7 @@ async function setupMocks(page: Page) {
         title: "Shift 50% of private trips to bicycle",
         category: "transport",
         projected_savings_kg: 1200.0,
-        status: "completed"
+        status: "completed",
       }),
     });
   });
@@ -162,7 +152,7 @@ async function setupMocks(page: Page) {
   await page.route("**/committed_actions", async (route: Route) => {
     if (route.request().method() === "POST") {
       await route.fulfill({
-        status: 200,
+        status: 201,
         contentType: "application/json",
         body: JSON.stringify({
           id: "mock-commitment-id",
@@ -170,7 +160,7 @@ async function setupMocks(page: Page) {
           title: "Shift 50% of private trips to bicycle",
           category: "transport",
           projected_savings_kg: 1200.0,
-          status: "active"
+          status: "active",
         }),
       });
     } else {
@@ -184,8 +174,8 @@ async function setupMocks(page: Page) {
             title: "Shift 50% of private trips to bicycle",
             category: "transport",
             projected_savings_kg: 1200.0,
-            status: "active"
-          }
+            status: "active",
+          },
         ]),
       });
     }
@@ -196,9 +186,10 @@ async function setupMocks(page: Page) {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        streak_days: 3,
-        last_active_date: "2026-06-09",
-        longest_streak: 5
+        user_id: "mock-local-id-xyz",
+        current_streak: 3,
+        longest_streak: 5,
+        last_active_at: "2026-06-10T12:00:00Z",
       }),
     });
   });
@@ -206,13 +197,17 @@ async function setupMocks(page: Page) {
   await page.route("**/food", async (route: Route) => {
     if (route.request().method() === "POST") {
       await route.fulfill({
-        status: 200,
+        status: 201,
         contentType: "application/json",
         body: JSON.stringify({
           id: "mock-food-id",
+          user_id: "mock-local-id-xyz",
           item: "rice",
-          weight_kg: 0.50,
-          co2e_kg: 2.225
+          weight_kg: 0.5,
+          co2e_kg: 2.225,
+          citation: "Poore & Nemecek (2018) via Our World in Data",
+          effective_year: 2018,
+          timestamp: "2026-06-10T12:00:00Z",
         }),
       });
     } else {
@@ -222,11 +217,14 @@ async function setupMocks(page: Page) {
         body: JSON.stringify([
           {
             id: "mock-food-id-1",
+            user_id: "mock-local-id-xyz",
             item: "rice",
-            weight_kg: 0.50,
+            weight_kg: 0.5,
             co2e_kg: 2.225,
-            timestamp: "2026-06-09T12:00:00Z"
-          }
+            citation: "Poore & Nemecek (2018) via Our World in Data",
+            effective_year: 2018,
+            timestamp: "2026-06-10T12:00:00Z",
+          },
         ]),
       });
     }
@@ -235,13 +233,17 @@ async function setupMocks(page: Page) {
   await page.route("**/energy", async (route: Route) => {
     if (route.request().method() === "POST") {
       await route.fulfill({
-        status: 200,
+        status: 201,
         contentType: "application/json",
         body: JSON.stringify({
           id: "mock-energy-id",
+          user_id: "mock-local-id-xyz",
           source: "electricity",
           quantity: 100.0,
-          co2e_kg: 72.7
+          co2e_kg: 72.7,
+          citation: "CEA CO2 Baseline Database for the Indian Power Sector, Version 20.0",
+          effective_year: 2024,
+          timestamp: "2026-06-10T12:00:00Z",
         }),
       });
     } else {
@@ -251,11 +253,14 @@ async function setupMocks(page: Page) {
         body: JSON.stringify([
           {
             id: "mock-energy-id-1",
+            user_id: "mock-local-id-xyz",
             source: "electricity",
             quantity: 100.0,
             co2e_kg: 72.7,
-            timestamp: "2026-06-09T12:00:00Z"
-          }
+            citation: "CEA CO2 Baseline Database for the Indian Power Sector, Version 20.0",
+            effective_year: 2024,
+            timestamp: "2026-06-10T12:00:00Z",
+          },
         ]),
       });
     }
@@ -267,7 +272,7 @@ async function setupMocks(page: Page) {
       contentType: "application/json",
       body: JSON.stringify({
         narration: "You are doing great! Your transport emissions are below IPCC sustainable limits.",
-        source: "gemini"
+        source: "gemini",
       }),
     });
   });
@@ -279,84 +284,116 @@ test.describe("Handprint E2E", () => {
   });
 
   test("dashboard renders correctly and has no a11y violations", async ({ page }) => {
-    await page.goto("/");
-    // Wait for the main page loaded content to be visible (e.g. Daily Carbon Budget heading)
+    await page.goto("/dashboard");
     await expect(page.locator("text=Daily Carbon Budget")).toBeVisible();
-    
-    // Verify skip to main content link exists
+
     const skipLink = page.locator("text=Skip to main content");
     await expect(skipLink).toBeAttached();
 
-    // Verify climate benchmarks comparison card
     await expect(page.locator("text=Climate Benchmarks")).toBeVisible();
 
-    // Verify SVG trend table fallback is present
     const trendTable = page.locator("table.sr-only");
     await expect(trendTable).toBeAttached();
 
-    // Run axe accessibility check
     const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
-  test("manual trip log and secondary categories log", async ({ page }) => {
+  test("log activity page renders with correct heading and all tabs", async ({ page }) => {
     await page.goto("/trips/new");
-    await expect(page.locator("text=Log Travel Trip")).toBeVisible();
 
-    // Verify label associations and fill form
-    await page.fill("#origin-input", "Delhi");
-    await page.fill("#destination-input", "Noida");
-    await page.click("#mode-radio-ev_car");
+    await expect(page.locator("h1")).toHaveText("Log an activity");
 
-    // Click calculate
-    await page.click("text=Calculate Distance & Carbon");
+    // All three tab buttons present with correct IDs
+    await expect(page.locator("#tab-travel")).toBeVisible();
+    await expect(page.locator("#tab-food")).toBeVisible();
+    await expect(page.locator("#tab-energy")).toBeVisible();
 
-    // Preview should show up
-    await expect(page.locator("text=Emissions Preview").or(page.locator("text=Accounting Methodology"))).toBeVisible();
-    
-    // Click Save
-    await page.click("text=Save Trip Log");
+    // Travel panel is active by default — real form fields visible
+    await expect(page.locator("#travel-mode")).toBeVisible();
+    await expect(page.locator("#travel-km")).toBeVisible();
+  });
 
-    // Redirect to dashboard (with mocked route showing budget)
-    await expect(page).toHaveURL("/");
-
-    // Go back to test Food
+  test("log travel activity and see inline success message", async ({ page }) => {
     await page.goto("/trips/new");
+
+    // Travel tab is default — select ev_car mode
+    await page.selectOption("#travel-mode", "ev_car");
+
+    // Enter distance using the real input ID
+    await page.fill("#travel-km", "50");
+
+    // Submit via the "Add to log" button (type=submit inside the travel panel form)
+    await page.click('#panel-travel button[type="submit"]');
+
+    // Success banner shown inline — no redirect
+    await expect(page.locator("text=Activity logged successfully.")).toBeVisible();
+
+    const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
+    expect(accessibilityScanResults.violations).toEqual([]);
+  });
+
+  test("log food activity and see inline success message", async ({ page }) => {
+    await page.goto("/trips/new");
+
+    // Switch to food tab using real ID
     await page.click("#tab-food");
-    await expect(page.locator("text=Select Food Item")).toBeVisible();
+    await expect(page.locator("#food-item")).toBeVisible();
+    await expect(page.locator("#food-weight")).toBeVisible();
 
-    await page.click("#food-radio-rice");
-    await page.fill("#food-weight-input", "0.50");
-    await page.click("text=Save Food Log");
-    await expect(page).toHaveURL("/");
+    // Select rice from the food-item dropdown
+    await page.selectOption("#food-item", "rice");
 
-    // Go back to test Energy
-    await page.goto("/trips/new");
-    await page.click("#tab-energy");
-    await expect(page.locator("text=Select Utility Source")).toBeVisible();
+    // Enter weight using the real input ID
+    await page.fill("#food-weight", "0.5");
 
-    await page.click("#energy-radio-electricity");
-    await page.fill("#energy-quantity-input", "100");
-    await page.click("text=Save Energy Log");
-    await expect(page).toHaveURL("/");
+    // Submit
+    await page.click('#panel-food button[type="submit"]');
 
-    // Scan for WCAG violations
-    const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
-    expect(accessibilityScanResults.violations).toEqual([]);
+    await expect(page.locator("text=Activity logged successfully.")).toBeVisible();
   });
 
-  test("NL trip log with AI Journey Autofill", async ({ page }) => {
+  test("log energy activity and see inline success message", async ({ page }) => {
     await page.goto("/trips/new");
-    await expect(page.locator("text=AI Journey Autofill")).toBeVisible();
 
+    // Switch to energy tab using real ID
+    await page.click("#tab-energy");
+    await expect(page.locator("#energy-source")).toBeVisible();
+    await expect(page.locator("#energy-qty")).toBeVisible();
+
+    // Select electricity from the energy-source dropdown
+    await page.selectOption("#energy-source", "electricity");
+
+    // Enter quantity using the real input ID
+    await page.fill("#energy-qty", "100");
+
+    // Submit
+    await page.click('#panel-energy button[type="submit"]');
+
+    await expect(page.locator("text=Activity logged successfully.")).toBeVisible();
+  });
+
+  test("AI autofill toggle expands panel and parses mode from text", async ({ page }) => {
+    await page.goto("/trips/new");
+
+    // The AI autofill toggle button is visible on the travel tab
+    const aiToggle = page.locator('button:has-text("AI autofill")');
+    await expect(aiToggle).toBeVisible();
+
+    // Expand the AI panel
+    await aiToggle.click();
+
+    // Real input IDs are now visible
+    await expect(page.locator("#ai-text-input")).toBeVisible();
+    await expect(page.locator("#ai-autofill-button")).toBeVisible();
+
+    // Type journey description and click Parse
     await page.fill("#ai-text-input", "Drove 50km from Delhi to Noida in an EV");
     await page.click("#ai-autofill-button");
 
-    // Assert inputs populated
-    await expect(page.locator("#origin-input")).toHaveValue("Delhi");
-    await expect(page.locator("#destination-input")).toHaveValue("Noida");
+    // Mock returns mode=ev_car; the travel-mode select should reflect it
+    await expect(page.locator("#travel-mode")).toHaveValue("ev_car");
 
-    // Scan accessibility
     const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
     expect(accessibilityScanResults.violations).toEqual([]);
   });
@@ -365,28 +402,22 @@ test.describe("Handprint E2E", () => {
     await page.goto("/simulate");
     await expect(page.locator("text=Configure Scenario")).toBeVisible();
 
-    // Strategy selection
     await page.click("#sc-radio-mode_shift");
     await page.click("#target-mode-radio-bicycle");
 
-    // Target alternate mode
     await page.fill("#percentage-slider", "50");
     await page.click("text=Calculate Projected Savings");
 
-    // Results gauge and equivalent cards should show up
-    await expect(page.locator("text=Simulation Forecast Analysis")).toBeVisible();
-    await expect(page.locator("text=Trees Grown")).toBeVisible();
+    await expect(page.locator("h2:has-text('Simulation Results')")).toBeVisible();
+    await expect(page.locator("text=Trees grown")).toBeVisible();
 
-    // Commit pledge
-    await page.click("text=Pledge and Commit to this Action");
-    await expect(page.locator("text=Emissions Pledged Successfully!")).toBeVisible();
+    await page.click("text=Pledge this reduction");
+    await expect(page.locator("text=Commitment saved.")).toBeVisible();
 
-    // Verify progressbar has accessible role and values
     const progressGauge = page.locator("[role='progressbar']");
     await expect(progressGauge).toBeVisible();
     await expect(progressGauge).toHaveAttribute("aria-valuenow", "50");
 
-    // Scan accessibility
     const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
     expect(accessibilityScanResults.violations).toEqual([]);
   });
@@ -399,11 +430,9 @@ test.describe("Handprint E2E", () => {
     await page.fill("#login-password", "supersecretpassword");
     await page.fill("#login-confirm-password", "supersecretpassword");
 
-    // Trigger mock accounts upgrade or check elements
     const saveButton = page.locator("text=Save My Account");
     await expect(saveButton).toBeVisible();
 
-    // Scan accessibility
     const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
     expect(accessibilityScanResults.violations).toEqual([]);
   });

@@ -1,12 +1,10 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from httpx import AsyncClient
 
-from app.clients.distance_matrix import DistanceMatrixClient
 from app.core.dependencies import (
-    get_distance_matrix_client,
     get_streak_repository,
     get_trip_log_repository,
 )
@@ -35,7 +33,7 @@ def cleanup_overrides() -> None:
 async def test_create_trip_success(client: AsyncClient) -> None:
     """Test successful trip creation and emission estimation."""
     mock_repo = MagicMock(spec=TripLogRepository)
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(UTC)
 
     # Mock the save operation to return the saved trip log
     async def mock_create(trip: TripLog) -> TripLog:
@@ -129,7 +127,7 @@ async def test_create_trip_validation_errors(client: AsyncClient) -> None:
 async def test_list_trips_success(client: AsyncClient) -> None:
     """Test successful retrieval of trip logs."""
     mock_repo = MagicMock(spec=TripLogRepository)
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(UTC)
     mock_trips = [
         TripLog(
             id="trip_1",
@@ -174,37 +172,3 @@ async def test_trips_auth_missing(client: AsyncClient) -> None:
     assert res.status_code == 401
 
 
-@pytest.mark.asyncio
-async def test_get_trip_distance_success(client: AsyncClient) -> None:
-    """Test successfully fetching driving distance."""
-    mock_client = MagicMock(spec=DistanceMatrixClient)
-    mock_client.get_distance = AsyncMock(return_value=12.5)
-
-    app.dependency_overrides[get_current_user_id] = lambda: "user_abc"
-    app.dependency_overrides[get_distance_matrix_client] = lambda: mock_client
-
-    headers = {"Authorization": "Bearer mock_token"}
-    response = await client.get("/trips/distance?origin=A&destination=B", headers=headers)
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["origin"] == "A"
-    assert data["destination"] == "B"
-    assert data["distance_km"] == 12.5
-    mock_client.get_distance.assert_called_once_with("A", "B")
-
-
-@pytest.mark.asyncio
-async def test_get_trip_distance_error(client: AsyncClient) -> None:
-    """Test handling distance query failure."""
-    mock_client = MagicMock(spec=DistanceMatrixClient)
-    mock_client.get_distance = AsyncMock(side_effect=ValueError("Routing failed"))
-
-    app.dependency_overrides[get_current_user_id] = lambda: "user_abc"
-    app.dependency_overrides[get_distance_matrix_client] = lambda: mock_client
-
-    headers = {"Authorization": "Bearer mock_token"}
-    response = await client.get("/trips/distance?origin=A&destination=B", headers=headers)
-
-    assert response.status_code == 400
-    assert "Routing failed" in response.json()["detail"]
