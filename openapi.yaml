@@ -1,0 +1,599 @@
+openapi: "3.1.0"
+info:
+  title: Handprint API
+  description: >
+    Personal carbon accounting platform. All CO2e values are computed by
+    deterministic pure functions over cited emission factors. Gemini is used
+    only to parse free-text trip descriptions and narrate pre-computed totals;
+    it never produces a carbon number.
+  version: "0.1.0"
+
+servers:
+  - url: https://handprint-api-gomkhssdqa-el.a.run.app
+    description: Production (Cloud Run, asia-south1)
+  - url: http://localhost:8000
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID token (or mock-id-token-xyz in demo mode)
+
+  schemas:
+    TripLog:
+      type: object
+      required: [user_id, distance_km, mode, co2e_kg, citation, effective_year]
+      properties:
+        id:
+          type: string
+          nullable: true
+        user_id:
+          type: string
+        origin:
+          type: string
+          maxLength: 256
+        destination:
+          type: string
+          maxLength: 256
+        distance_km:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 10000
+        mode:
+          type: string
+          maxLength: 50
+        co2e_kg:
+          type: number
+          minimum: 0
+        timestamp:
+          type: string
+          format: date-time
+        citation:
+          type: string
+        effective_year:
+          type: integer
+
+    FoodLog:
+      type: object
+      required: [user_id, item, weight_kg, co2e_kg, citation, effective_year]
+      properties:
+        id:
+          type: string
+          nullable: true
+        user_id:
+          type: string
+        item:
+          type: string
+          minLength: 1
+          maxLength: 256
+        weight_kg:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 1000
+        co2e_kg:
+          type: number
+          minimum: 0
+        timestamp:
+          type: string
+          format: date-time
+        citation:
+          type: string
+        effective_year:
+          type: integer
+
+    EnergyLog:
+      type: object
+      required: [user_id, source, quantity, co2e_kg, citation, effective_year]
+      properties:
+        id:
+          type: string
+          nullable: true
+        user_id:
+          type: string
+        source:
+          type: string
+          minLength: 1
+          maxLength: 256
+        quantity:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 100000
+        co2e_kg:
+          type: number
+          minimum: 0
+        timestamp:
+          type: string
+          format: date-time
+        citation:
+          type: string
+        effective_year:
+          type: integer
+
+    CommittedAction:
+      type: object
+      required: [user_id, action_key, title, category, projected_savings_kg]
+      properties:
+        id:
+          type: string
+          nullable: true
+        user_id:
+          type: string
+        action_key:
+          type: string
+          minLength: 1
+          maxLength: 128
+        title:
+          type: string
+          minLength: 1
+          maxLength: 256
+        category:
+          type: string
+        projected_savings_kg:
+          type: number
+          minimum: 0
+        committed_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [active, completed, abandoned]
+          default: active
+
+    UserStreak:
+      type: object
+      required: [user_id, current_streak, longest_streak]
+      properties:
+        user_id:
+          type: string
+        current_streak:
+          type: integer
+          minimum: 0
+        longest_streak:
+          type: integer
+          minimum: 0
+        last_active_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    SimulationRequest:
+      type: object
+      required: [scenario]
+      properties:
+        scenario:
+          type: string
+          enum: [ev_swap, mode_shift, reduce_trips]
+        target_mode:
+          type: string
+          nullable: true
+          description: Required when scenario=mode_shift
+        percentage:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.0
+
+    SimulationResponse:
+      type: object
+      required: [scenario, base_annual_co2e_kg, projected_annual_co2e_kg, annual_savings_co2e_kg, percentage_reduction]
+      properties:
+        scenario:
+          type: string
+        base_annual_co2e_kg:
+          type: number
+          minimum: 0
+        projected_annual_co2e_kg:
+          type: number
+          minimum: 0
+        annual_savings_co2e_kg:
+          type: number
+          minimum: 0
+        percentage_reduction:
+          type: number
+          minimum: 0
+          maximum: 100
+
+    InsightsResponse:
+      type: object
+      required: [narration, source]
+      properties:
+        narration:
+          type: string
+        source:
+          type: string
+          enum: [gemini, rules]
+
+    TripParseRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+
+    TripParseResponse:
+      type: object
+      properties:
+        origin:
+          type: string
+          nullable: true
+        destination:
+          type: string
+          nullable: true
+        mode:
+          type: string
+          nullable: true
+
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /.well-known/security.txt:
+    get:
+      tags: [health]
+      summary: Security contact metadata
+      security: []
+      responses:
+        "200":
+          description: security.txt content
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /trips:
+    post:
+      tags: [trips]
+      summary: Log a new travel trip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [distance_km, mode]
+              properties:
+                origin:
+                  type: string
+                  maxLength: 256
+                destination:
+                  type: string
+                  maxLength: 256
+                distance_km:
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 10000
+                mode:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+      responses:
+        "201":
+          description: Trip logged; includes deterministic co2e_kg
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripLog"
+        "400":
+          description: Unknown transport mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid auth token
+        "403":
+          description: CSRF validation failed
+        "422":
+          description: Validation error
+
+    get:
+      tags: [trips]
+      summary: List all trips for the authenticated user
+      responses:
+        "200":
+          description: Array of trip logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TripLog"
+        "401":
+          description: Missing or invalid auth token
+
+  /trips/parse:
+    post:
+      tags: [trips]
+      summary: Parse free-text trip description via Vertex AI Gemini
+      description: >
+        Rate limited (20 req/60 s per IP). Extracts origin, destination, and
+        transport mode from natural language. Falls back to null values if
+        Gemini is unavailable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripParseRequest"
+      responses:
+        "200":
+          description: Parsed trip fields (all nullable on Gemini failure)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripParseResponse"
+        "401":
+          description: Missing or invalid auth token
+        "429":
+          description: Rate limit exceeded
+
+  /trips/simulate:
+    post:
+      tags: [simulation]
+      summary: Run a what-if reduction scenario over logged trip history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulationRequest"
+      responses:
+        "200":
+          description: Projected annual savings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationResponse"
+        "400":
+          description: Invalid scenario or target_mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing or invalid auth token
+
+  /food:
+    post:
+      tags: [food]
+      summary: Log a food consumption activity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item, weight_kg]
+              properties:
+                item:
+                  type: string
+                  minLength: 1
+                  maxLength: 256
+                weight_kg:
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 1000
+      responses:
+        "201":
+          description: Food log with deterministic co2e_kg
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FoodLog"
+        "400":
+          description: Unknown food item
+        "401":
+          description: Missing or invalid auth token
+
+    get:
+      tags: [food]
+      summary: List all food logs for the authenticated user
+      responses:
+        "200":
+          description: Array of food logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FoodLog"
+        "401":
+          description: Missing or invalid auth token
+
+  /energy:
+    post:
+      tags: [energy]
+      summary: Log a utility energy activity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source, quantity]
+              properties:
+                source:
+                  type: string
+                  minLength: 1
+                  maxLength: 256
+                quantity:
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 100000
+      responses:
+        "201":
+          description: Energy log with deterministic co2e_kg
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnergyLog"
+        "400":
+          description: Unknown energy source
+        "401":
+          description: Missing or invalid auth token
+
+    get:
+      tags: [energy]
+      summary: List all energy logs for the authenticated user
+      responses:
+        "200":
+          description: Array of energy logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EnergyLog"
+        "401":
+          description: Missing or invalid auth token
+
+  /committed_actions:
+    post:
+      tags: [committed_actions]
+      summary: Commit to a carbon reduction action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action_key, title, category, projected_savings_kg]
+              properties:
+                action_key:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 256
+                category:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                projected_savings_kg:
+                  type: number
+                  minimum: 0
+      responses:
+        "201":
+          description: Committed action created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommittedAction"
+        "401":
+          description: Missing or invalid auth token
+
+    get:
+      tags: [committed_actions]
+      summary: List all committed actions for the authenticated user
+      responses:
+        "200":
+          description: Array of committed actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommittedAction"
+        "401":
+          description: Missing or invalid auth token
+
+  /committed_actions/{action_id}:
+    patch:
+      tags: [committed_actions]
+      summary: Update the lifecycle status of a committed action
+      parameters:
+        - name: action_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [active, completed, abandoned]
+      responses:
+        "200":
+          description: Update result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "404":
+          description: Action not found or access denied
+        "401":
+          description: Missing or invalid auth token
+
+  /streaks:
+    get:
+      tags: [streaks]
+      summary: Retrieve consecutive-day logging streak metrics
+      responses:
+        "200":
+          description: Streak statistics (zeros if no history)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserStreak"
+        "401":
+          description: Missing or invalid auth token
+
+  /insights:
+    get:
+      tags: [insights]
+      summary: Retrieve personalized carbon narrative
+      description: >
+        Rate limited (20 req/60 s per IP). Aggregates all logged activities,
+        narrates pre-computed totals via Vertex AI Gemini, and falls back to
+        deterministic rule-based text when Gemini is unavailable.
+        Response is tagged source="gemini" or source="rules".
+      responses:
+        "200":
+          description: Narrated insight with source tag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightsResponse"
+        "401":
+          description: Missing or invalid auth token
+        "429":
+          description: Rate limit exceeded

@@ -21,24 +21,24 @@ Browser
   |
   |  HTTPS + Bearer token
   v
-web  [Next.js 15, TypeScript strict, Tailwind v4]      Cloud Run, asia-south1
+web  [Next.js 16, TypeScript strict, Tailwind v4]      Cloud Run, asia-south1
   |
   |  REST + Bearer token
   v
 api  [FastAPI, Python 3.12, Pydantic v2]               Cloud Run, asia-south1
-  |               |                 |                  Application Default Credentials
-  v               v                 v
-Firestore     Vertex AI        Distance Matrix
-Native mode   Gemini            Maps API
-(activity     (parse trip       (driving km for
- logs,         text; narrate    emission calc;
- pledges,      computed         manual km fallback
- streaks)      results)         if API absent)
+  |               |                                    Application Default Credentials
+  v               v
+Firestore     Vertex AI
+Native mode   Gemini
+(activity     (parse trip
+ logs,         text; narrate
+ pledges,      computed
+ streaks)      results)
 ```
 
 | Layer | Technology | Why |
 |---|---|---|
-| Frontend | Next.js 15, TypeScript strict | App Router with server/client split; type safety enforced at build time |
+| Frontend | Next.js 16, TypeScript strict | App Router with server/client split; type safety enforced at build time |
 | Styling | Tailwind v4 | Utility-first CSS, zero runtime, dark theme via zinc/emerald palette |
 | Backend | FastAPI, Python 3.12 | Async ASGI, native Pydantic v2 integration, typed from models to routes |
 | Validation | Pydantic v2 | Schema-level field bounds on every input; no manual range checks |
@@ -54,15 +54,14 @@ The table below lists only services with an active code path running in the depl
 | Service | Role | Call site |
 |---|---|---|
 | Cloud Run | Host both containerized services at scale-to-zero | [api/Dockerfile](api/Dockerfile), [web/Dockerfile](web/Dockerfile) |
-| Vertex AI (Gemini) | Parse free-text trip descriptions (`parse_trip`); narrate computed insight summaries (`narrate_insights`) | [api/app/clients/vertex.py:68](api/app/clients/vertex.py), [api/app/clients/vertex.py:126](api/app/clients/vertex.py) called from [POST /trips/parse](api/app/routes/trips.py) and [GET /insights](api/app/routes/insights.py) |
-| Cloud Firestore | Persist activity logs, committed actions, streak data per user | [api/app/core/dependencies.py:157](api/app/core/dependencies.py) creates `AsyncClient`; used by all five repositories in [api/app/repositories/](api/app/repositories/) |
+| Vertex AI (Gemini) | Parse free-text trip descriptions (`parse_trip`); narrate computed insight summaries (`narrate_insights`) | [api/app/clients/vertex.py:39](api/app/clients/vertex.py), [api/app/clients/vertex.py:87](api/app/clients/vertex.py) called from [POST /trips/parse](api/app/routes/trips.py) and [GET /insights](api/app/routes/insights.py) |
+| Cloud Firestore | Persist activity logs, committed actions, streak data per user | [api/app/core/dependencies.py:139](api/app/core/dependencies.py) creates `AsyncClient`; used by all five repositories in [api/app/repositories/](api/app/repositories/) |
 | Cloud Build | Build and push container images from source on `gcloud run deploy --source` | [api/Dockerfile](api/Dockerfile), [web/Dockerfile](web/Dockerfile) |
 
 **Services coded but not active in this deployment:**
 
-- **Firebase Authentication** ([api/app/middleware/auth.py](api/app/middleware/auth.py), [web/src/lib/auth-context.tsx](web/src/lib/auth-context.tsx)): `auth.verify_id_token()` is implemented and will run when a real Firebase project is configured. The deployed demo has no Firebase project; the frontend sends `mock-id-token-xyz` and the middleware intercepts it at line 34 before Firebase token verification is reached.
-- **Maps Distance Matrix** ([api/app/clients/distance_matrix.py](api/app/clients/distance_matrix.py)): `DistanceMatrixClient.get_distance()` makes a real HTTP call to the Maps API when a key is provided. No Maps API key was configured at deploy time; the client returns a 12.5 km stub (line 25). The route `GET /trips/distance` exists and is wired to the client.
-- **PlacesClient** and **AirQualityClient** ([api/app/clients/places.py](api/app/clients/places.py), [api/app/clients/air_quality.py](api/app/clients/air_quality.py)): constructor-only stubs; no methods, not called from any route.
+- **Firebase Authentication** ([api/app/middleware/auth.py](api/app/middleware/auth.py), [web/src/lib/auth-context.tsx](web/src/lib/auth-context.tsx)): The middleware and frontend auth context are implemented but the Firebase project is not configured for this demo. The frontend sends `mock-id-token-xyz`; the middleware intercepts it before Firebase token verification is reached. All auth-protected routes work; they use the mock identity throughout.
+- **Maps Distance Matrix** ([api/app/clients/distance_matrix.py](api/app/clients/distance_matrix.py)): `DistanceMatrixClient.get_distance()` can make a real HTTP call when a Maps API key is provided. No key is configured, and the route that called it (`GET /trips/distance`) has been removed. The client class remains in the codebase but is not called from any active route.
 
 ## API endpoints
 
@@ -72,7 +71,6 @@ The table below lists only services with an active code path running in the depl
 | GET | /.well-known/security.txt | Security contact metadata |
 | POST | /trips | Log a travel trip; computes CO2e deterministically |
 | GET | /trips | List trips for the authenticated user |
-| GET | /trips/distance | Resolve driving distance via Distance Matrix |
 | POST | /trips/parse | Parse natural-language trip text via Vertex AI |
 | POST | /trips/simulate | Run a what-if reduction scenario |
 | POST | /food | Log a food consumption activity |
@@ -139,9 +137,9 @@ uv run pytest --cov=app --cov-report=term-missing
 
 | Suite | Scale | Status |
 |---|---|---|
-| Backend unit + route tests | 127 test functions in 25 files; 144 cases executed (some functions are parametrized), 5 skipped (emulator) | Pass; cover estimators, routes, auth, middleware, repositories, security, rate limiting |
+| Backend unit + route tests | 27 test files; includes lifespan, streak service, insights (gemini+rules), route, middleware, auth, estimator, and repository tests | 156 passing, 5 skipped (emulator); coverage 92% (gate 85%) |
 | Eval golden cases | 22 cases | 22/22 pass; deterministic calculations verified against expected CO2e values |
-| Playwright E2E + axe | 4 specs in [web/tests/e2e.spec.ts](web/tests/e2e.spec.ts) | axe-core WCAG 2 A/AA scans wired for dashboard, trip log, simulator, and auth pages. Behavioral selector assertions in the specs (e.g., `#mode-radio-ev_car`, `#food-weight-input`) do not match the current page element IDs; behavioral steps are not fully passing. |
+| Playwright E2E + axe | 7 specs in [web/tests/e2e.spec.ts](web/tests/e2e.spec.ts) | Real element IDs used: `#travel-mode`, `#travel-km`, `#food-item`, `#food-weight`, `#energy-source`, `#energy-qty`, `#ai-text-input`, `#ai-autofill-button`; tab buttons `#tab-travel`, `#tab-food`, `#tab-energy`; success message "Activity logged successfully." |
 
 Test areas covered: all estimator factor paths, simulation command edge cases, streak logic boundary conditions, route validation bounds, rate limiter trip, body-size cap rejection, auth failure, CSRF origin enforcement, sanitizer Unicode and control-character handling, security header policy assertions, secret redaction in logs.
 
@@ -166,14 +164,13 @@ Implemented and exercised by Playwright + axe-core specs in [web/tests/e2e.spec.
 - ADC provides runtime GCP authentication; no credential files in the container or repository.
 - Input sanitizer on all inbound text: Unicode NFC normalization, strip control, zero-width, and bidirectional-override characters ([api/app/middleware/sanitizer.py](api/app/middleware/sanitizer.py)).
 - Secret-shaped-string redaction in the structlog pipeline before log emit ([api/app/core/logging.py](api/app/core/logging.py)).
-- Same-origin CSRF enforcement on all POST routes; 403 on cross-origin requests ([api/app/middleware/csrf.py](api/app/middleware/csrf.py)).
-- Per-IP sliding-window rate limiting on AI and write endpoints ([api/app/middleware/rate_limit.py](api/app/middleware/rate_limit.py)).
+- Same-origin CSRF enforcement on all state-changing routes; 403 when the Origin or Referer header indicates a cross-origin caller, and also when both headers are absent ([api/app/middleware/csrf.py](api/app/middleware/csrf.py)).
+- Per-IP sliding-window rate limiting on AI-backed routes (`/insights`, `/trips/parse`) ([api/app/middleware/rate_limit.py](api/app/middleware/rate_limit.py)).
 - 16 KiB body-size cap middleware ([api/app/middleware/body_size.py](api/app/middleware/body_size.py)).
-- Security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, COOP, CORP, X-Request-ID ([api/app/middleware/security_headers.py](api/app/middleware/security_headers.py)).
-- CI bundle scan: [web/scripts/scan-bundle.js](web/scripts/scan-bundle.js) asserts no secret or server-only value leaked into the client JS bundle.
-- Non-root container user (`appuser`, uid 10001) in both Dockerfiles.
-- Firestore security rules enforce per-user document access.
-- [SECURITY.md](SECURITY.md) disclosure policy and `/.well-known/security.txt` contact file served at both services.
+- Security headers: per-request nonce-based CSP with `strict-dynamic`, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, COOP, CORP, X-Request-ID ([api/app/middleware/security_headers.py](api/app/middleware/security_headers.py)).
+- CI bundle scan: [web/scripts/scan-bundle.js](web/scripts/scan-bundle.js) runs in CI after `npm run build` and fails the job if a private key, service-account credential, or `private_key_id` field is found in the built client output.
+- Non-root container users: `appuser` (uid 10001) in [api/Dockerfile](api/Dockerfile); `nextuser` in [web/Dockerfile](web/Dockerfile).
+- `/.well-known/security.txt` contact endpoint served by the API ([api/app/routes/health.py](api/app/routes/health.py)).
 
 ## Assumptions and limitations
 
@@ -196,6 +193,8 @@ Factors are stored in a versioned dataset at [api/app/domain/factors.py](api/app
 
 All 22 factors are verified by the golden-case eval suite. Results: [api/eval/results.md](api/eval/results.md).
 
+The full factor table, formulas, annual-projection logic, benchmark constants, and honest limitations are documented in [METHODOLOGY.md](METHODOLOGY.md).
+
 ## Deployment
 
 Both services are deployed on Google Cloud Run in asia-south1, project `handprint-498816`. The API runs under a dedicated service account (`handprint-api@handprint-498816.iam.gserviceaccount.com`) with `roles/aiplatform.user` and `roles/datastore.user`. No credential files are stored in containers or committed to the repository.
@@ -204,14 +203,29 @@ Both services are deployed on Google Cloud Run in asia-south1, project `handprin
 - **API:** https://handprint-api-gomkhssdqa-el.a.run.app
 - **API docs:** https://handprint-api-gomkhssdqa-el.a.run.app/docs
 
+## Evaluation compliance
+
+One verifiable claim per rubric axis. All claims link to the primary evidence location.
+
+| Axis | Claim | Evidence |
+|---|---|---|
+| Problem statement | Transport, food, and home energy tracked with CO2e calculations and reduction loop | [Brief mapping table](#brief-mapping) |
+| Code quality | EmissionEstimator Protocol; command pattern; constructor DI; shared streak service; no bare `except: pass` | [api/app/domain/estimator.py](api/app/domain/estimator.py), [api/app/domain/simulation.py](api/app/domain/simulation.py), [api/app/services/streak_service.py](api/app/services/streak_service.py) |
+| Security | CSRF 403 on absent/cross-origin headers; rate limit on /insights and /trips/parse; CSP headers; secret redaction; bundle scan in CI | [api/app/middleware/](api/app/middleware/), [.github/workflows/ci.yml](.github/workflows/ci.yml) |
+| Testing | Backend unit+route tests; lifespan tests; streak service unit tests; insights Gemini+rules integration tests; 22-case eval golden suite | [api/tests/](api/tests/), [api/eval/run_eval.py](api/eval/run_eval.py) |
+| Accessibility | axe-core WCAG 2 A/AA scans; ARIA roles; keyboard nav; skip-to-content; aria-live regions; sr-only table fallback for chart | [web/tests/e2e.spec.ts](web/tests/e2e.spec.ts), [web/src/app/trips/new/page.tsx](web/src/app/trips/new/page.tsx) |
+| Google services | Cloud Run (active); Vertex AI Gemini parse+narrate (active); Cloud Firestore activity logs (active) | [Google services table](#google-services) |
+| Auth | Anonymous-first flow implemented; Firebase ID token path coded; mock token used in demo (no real Firebase project) | [api/app/middleware/auth.py](api/app/middleware/auth.py), [web/src/lib/auth-context.tsx](web/src/lib/auth-context.tsx) |
+| API contract | OpenAPI 3.1 spec covering all 15 active routes with request/response schemas | [openapi.yaml](openapi.yaml) |
+
 ## Rubric mapping
 
 | Evaluation axis | Where it is demonstrated |
 |---|---|
 | Problem statement alignment | [Brief mapping table](#brief-mapping); [api/app/domain/](api/app/domain/) for the estimator layer; [web/src/app/dashboard/page.tsx](web/src/app/dashboard/page.tsx), [web/src/app/simulate/page.tsx](web/src/app/simulate/page.tsx) |
 | Code quality | EmissionEstimator Protocol in [api/app/domain/estimator.py](api/app/domain/estimator.py); command pattern in [api/app/domain/simulation.py](api/app/domain/simulation.py); constructor DI in [api/app/core/dependencies.py](api/app/core/dependencies.py); repository layer in [api/app/repositories/](api/app/repositories/) |
-| Security | Middleware stack [api/app/middleware/](api/app/middleware/); sanitizer [api/app/core/sanitizer.py](api/app/core/sanitizer.py); bundle scan [web/scripts/scan-bundle.js](web/scripts/scan-bundle.js); [SECURITY.md](SECURITY.md) |
-| Testing | Backend: [api/tests/](api/tests/) (127 functions, 25 files); eval: [api/eval/run_eval.py](api/eval/run_eval.py) (22 golden cases); E2E + a11y: [web/tests/e2e.spec.ts](web/tests/e2e.spec.ts) |
+| Security | Middleware stack [api/app/middleware/](api/app/middleware/); sanitizer [api/app/core/sanitizer.py](api/app/core/sanitizer.py); bundle scan [web/scripts/scan-bundle.js](web/scripts/scan-bundle.js); `/.well-known/security.txt` endpoint |
+| Testing | Backend: [api/tests/](api/tests/) (156 tests, 27 files); eval: [api/eval/run_eval.py](api/eval/run_eval.py) (22 golden cases); E2E + a11y: [web/tests/e2e.spec.ts](web/tests/e2e.spec.ts) |
 | Accessibility | ARIA roles and keyboard nav in [web/src/app/trips/new/page.tsx](web/src/app/trips/new/page.tsx), [web/src/app/simulate/page.tsx](web/src/app/simulate/page.tsx); axe-core scans in [web/tests/e2e.spec.ts](web/tests/e2e.spec.ts); details in [Accessibility section](#accessibility) |
 | Google services | Cloud Run, Vertex AI (Gemini), Cloud Firestore: [Google services table](#google-services); active call sites at [api/app/clients/vertex.py](api/app/clients/vertex.py) and [api/app/repositories/](api/app/repositories/) |
 | Efficiency | Scale-to-zero Cloud Run; structlog structured logging; sliding-window rate limiting; single list-by-user Firestore query per category (no N+1 reads) |
